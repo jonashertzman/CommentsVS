@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Text;
 
 namespace CommentsVS.Services
@@ -8,73 +7,57 @@ namespace CommentsVS.Services
     /// <summary>
     /// Represents a parsed XML documentation comment block.
     /// </summary>
-    public sealed class XmlDocCommentBlock
+    public sealed class XmlDocCommentBlock(
+        Span span,
+        int startLine,
+        int endLine,
+        string indentation,
+        string xmlContent,
+        LanguageCommentStyle commentStyle,
+        bool isMultiLineStyle)
     {
         /// <summary>
         /// Gets the span in the text buffer that contains this comment block.
         /// </summary>
-        public Span Span { get; }
+        public Span Span { get; } = span;
 
         /// <summary>
         /// Gets the starting line number (0-based).
         /// </summary>
-        public int StartLine { get; }
+        public int StartLine { get; } = startLine;
 
         /// <summary>
         /// Gets the ending line number (0-based, inclusive).
         /// </summary>
-        public int EndLine { get; }
+        public int EndLine { get; } = endLine;
 
         /// <summary>
         /// Gets the indentation (whitespace before the comment prefix) on the first line.
         /// </summary>
-        public string Indentation { get; }
+        public string Indentation { get; } = indentation;
 
         /// <summary>
         /// Gets the raw XML content of the comment (without prefixes).
         /// </summary>
-        public string XmlContent { get; }
+        public string XmlContent { get; } = xmlContent;
 
         /// <summary>
         /// Gets the language comment style used for this block.
         /// </summary>
-        public LanguageCommentStyle CommentStyle { get; }
+        public LanguageCommentStyle CommentStyle { get; } = commentStyle;
 
         /// <summary>
         /// Gets whether this is a multi-line comment (/** */) vs single-line (///).
         /// </summary>
-        public bool IsMultiLineStyle { get; }
-
-        public XmlDocCommentBlock(
-            Span span,
-            int startLine,
-            int endLine,
-            string indentation,
-            string xmlContent,
-            LanguageCommentStyle commentStyle,
-            bool isMultiLineStyle)
-        {
-            Span = span;
-            StartLine = startLine;
-            EndLine = endLine;
-            Indentation = indentation;
-            XmlContent = xmlContent;
-            CommentStyle = commentStyle;
-            IsMultiLineStyle = isMultiLineStyle;
-        }
+        public bool IsMultiLineStyle { get; } = isMultiLineStyle;
     }
 
     /// <summary>
     /// Parses XML documentation comments from text buffers.
     /// </summary>
-    public sealed class XmlDocCommentParser
+    public sealed class XmlDocCommentParser(LanguageCommentStyle commentStyle)
     {
-        private readonly LanguageCommentStyle _commentStyle;
-
-        public XmlDocCommentParser(LanguageCommentStyle commentStyle)
-        {
-            _commentStyle = commentStyle ?? throw new ArgumentNullException(nameof(commentStyle));
-        }
+        private readonly LanguageCommentStyle _commentStyle = commentStyle ?? throw new ArgumentNullException(nameof(commentStyle));
 
         /// <summary>
         /// Finds all XML documentation comment blocks in the given text snapshot.
@@ -277,7 +260,7 @@ namespace CommentsVS.Services
 
             ITextSnapshotLine firstSnapshotLine = snapshot.GetLineFromLineNumber(startLine);
             ITextSnapshotLine lastSnapshotLine = snapshot.GetLineFromLineNumber(endLine);
-            
+
             // Use End position (not EndIncludingLineBreak) to avoid affecting the next line
             var spanEnd = lastSnapshotLine.End.Position;
             var span = new Span(firstSnapshotLine.Start.Position, spanEnd - firstSnapshotLine.Start.Position);

@@ -52,7 +52,7 @@ namespace CommentsVS.Tagging
 
             ITextSnapshot snapshot = spans[0].Snapshot;
             IContentType contentType = snapshot.ContentType;
-            LanguageCommentStyle commentStyle = LanguageCommentStyle.GetForContentType(contentType);
+            var commentStyle = LanguageCommentStyle.GetForContentType(contentType);
 
             if (commentStyle == null)
             {
@@ -62,13 +62,13 @@ namespace CommentsVS.Tagging
             var parser = new XmlDocCommentParser(commentStyle);
             IReadOnlyList<XmlDocCommentBlock> commentBlocks = parser.FindAllCommentBlocks(snapshot);
 
-            bool collapseByDefault = General.Instance.CollapseCommentsOnFileOpen;
+            var collapseByDefault = General.Instance.CollapseCommentsOnFileOpen;
 
             foreach (XmlDocCommentBlock block in commentBlocks)
             {
                 // Adjust span to start after indentation so collapsed text
                 // appears at the same column as the comment
-                int adjustedStart = block.Span.Start + block.Indentation.Length;
+                var adjustedStart = block.Span.Start + block.Indentation.Length;
                 var adjustedSpan = new Span(adjustedStart, block.Span.End - adjustedStart);
                 var blockSpan = new SnapshotSpan(snapshot, adjustedSpan);
 
@@ -79,7 +79,7 @@ namespace CommentsVS.Tagging
 
                 // Get first line as collapsed text (without indentation)
                 ITextSnapshotLine firstLine = snapshot.GetLineFromLineNumber(block.StartLine);
-                string collapsedText = firstLine.GetText().TrimStart();
+                var collapsedText = firstLine.GetText().TrimStart();
 
                 var tag = new OutliningRegionTag(
                     collapsedForm: collapsedText,

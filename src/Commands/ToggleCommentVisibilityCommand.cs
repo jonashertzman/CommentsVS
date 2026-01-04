@@ -44,9 +44,7 @@ namespace CommentsVS.Commands
 
             // Get all collapsible regions and filter to XML doc comment regions
             var fullSpan = new SnapshotSpan(snapshot, 0, snapshot.Length);
-            List<ICollapsible> commentRegions = outliningManager.GetAllRegions(fullSpan)
-                .Where(r => IsXmlDocCommentRegion(r, snapshot))
-                .ToList();
+            List<ICollapsible> commentRegions = [.. outliningManager.GetAllRegions(fullSpan).Where(r => IsXmlDocCommentRegion(r, snapshot))];
 
             if (!commentRegions.Any())
             {
@@ -55,8 +53,8 @@ namespace CommentsVS.Commands
             }
 
             // Check if majority are collapsed
-            int collapsedCount = commentRegions.Count(r => r.IsCollapsed);
-            bool shouldExpand = collapsedCount > commentRegions.Count / 2;
+            var collapsedCount = commentRegions.Count(r => r.IsCollapsed);
+            var shouldExpand = collapsedCount > commentRegions.Count / 2;
 
             if (shouldExpand)
             {
@@ -94,7 +92,7 @@ namespace CommentsVS.Commands
         private static bool IsXmlDocCommentRegion(ICollapsible region, ITextSnapshot snapshot)
         {
             SnapshotSpan span = region.Extent.GetSpan(snapshot);
-            string text = span.GetText().TrimStart();
+            var text = span.GetText().TrimStart();
 
             // Check if region starts with XML doc comment prefix
             return text.StartsWith("///") || text.StartsWith("'''");
