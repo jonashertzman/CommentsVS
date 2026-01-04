@@ -35,7 +35,7 @@ Paste text into an XML documentation comment, and the extension automatically re
 As you type in an XML documentation comment, the extension automatically reflows the text when a line exceeds the maximum length. This happens seamlessly with a slight delay (300ms) after you stop typing, ensuring no characters are swallowed.
 
 ### Light Bulb Action
-Place your cursor inside any XML documentation comment and press **Ctrl+.** to see the "Reflow XML Documentation Comment" action.
+Place your cursor inside any XML documentation comment and press **Ctrl+.** to see the "Reflow comment" action.
 
 ![Light Bulb](art/lightbulb.png)
 
@@ -87,7 +87,7 @@ Configure the extension behavior via **Tools > Options > CommentsVS > General**.
    - **Format Selection** (Ctrl+K, Ctrl+F)
    - **Light Bulb** (Ctrl+.) → "Reflow XML Documentation Comment"
    - **Paste** text into a comment block
-4. Use **Ctrl+M, Ctrl+H** to toggle comment visibility
+4. Use **Ctrl+M, Ctrl+C** to toggle comment visibility
 
 ## Requirements
 

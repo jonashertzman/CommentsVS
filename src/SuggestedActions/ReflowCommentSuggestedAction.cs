@@ -15,23 +15,12 @@ namespace CommentsVS.SuggestedActions
     /// <summary>
     /// Light bulb action to reflow an XML documentation comment block.
     /// </summary>
-    internal sealed class ReflowCommentSuggestedAction : ISuggestedAction
+    internal sealed class ReflowCommentSuggestedAction(
+        ITrackingSpan trackingSpan,
+        XmlDocCommentBlock commentBlock,
+        ITextBuffer textBuffer) : ISuggestedAction
     {
-        private readonly ITrackingSpan _trackingSpan;
-        private readonly XmlDocCommentBlock _commentBlock;
-        private readonly ITextBuffer _textBuffer;
-
-        public ReflowCommentSuggestedAction(
-            ITrackingSpan trackingSpan,
-            XmlDocCommentBlock commentBlock,
-            ITextBuffer textBuffer)
-        {
-            _trackingSpan = trackingSpan;
-            _commentBlock = commentBlock;
-            _textBuffer = textBuffer;
-        }
-
-        public string DisplayText => "Reflow XML Documentation Comment";
+        public string DisplayText => "Reflow comment";
 
         public bool HasActionSets => false;
 
@@ -55,7 +44,7 @@ namespace CommentsVS.SuggestedActions
                 General options = await General.GetLiveInstanceAsync();
                 CommentReflowEngine engine = options.CreateReflowEngine();
 
-                var reflowed = engine.ReflowComment(_commentBlock);
+                var reflowed = engine.ReflowComment(commentBlock);
 
                 if (string.IsNullOrEmpty(reflowed))
                 {
@@ -75,22 +64,22 @@ namespace CommentsVS.SuggestedActions
                 General options = await General.GetLiveInstanceAsync();
                 CommentReflowEngine engine = options.CreateReflowEngine();
 
-                var reflowed = engine.ReflowComment(_commentBlock);
+                var reflowed = engine.ReflowComment(commentBlock);
 
                 if (!string.IsNullOrEmpty(reflowed))
                 {
-                    ITextSnapshot snapshot = _textBuffer.CurrentSnapshot;
+                    ITextSnapshot snapshot = textBuffer.CurrentSnapshot;
 
                     // Re-parse to get current span (might have shifted)
-                    LanguageCommentStyle commentStyle = _commentBlock.CommentStyle;
+                    LanguageCommentStyle commentStyle = commentBlock.CommentStyle;
                     var parser = new XmlDocCommentParser(commentStyle);
 
-                    SnapshotSpan currentSpan = _trackingSpan.GetSpan(snapshot);
+                    SnapshotSpan currentSpan = trackingSpan.GetSpan(snapshot);
                     XmlDocCommentBlock currentBlock = parser.FindCommentBlockAtPosition(snapshot, currentSpan.Start);
 
                     if (currentBlock != null)
                     {
-                        using (ITextEdit edit = _textBuffer.CreateEdit())
+                        using (ITextEdit edit = textBuffer.CreateEdit())
                         {
                             edit.Replace(currentBlock.Span, reflowed);
                             edit.Apply();

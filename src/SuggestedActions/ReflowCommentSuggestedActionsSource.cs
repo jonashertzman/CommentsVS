@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommentsVS.Services;
@@ -30,30 +29,18 @@ namespace CommentsVS.SuggestedActions
                 return null;
             }
 
-            return new ReflowCommentSuggestedActionsSource(this, textView, textBuffer);
+            return new ReflowCommentSuggestedActionsSource(textView, textBuffer);
         }
     }
 
     /// <summary>
     /// Provides suggested actions for reflowing XML documentation comments.
     /// </summary>
-    internal sealed class ReflowCommentSuggestedActionsSource : ISuggestedActionsSource
+    internal sealed class ReflowCommentSuggestedActionsSource(
+        ITextView textView,
+        ITextBuffer textBuffer) : ISuggestedActionsSource
     {
-        private readonly ReflowCommentSuggestedActionsSourceProvider _provider;
-        private readonly ITextView _textView;
-        private readonly ITextBuffer _textBuffer;
-
-        public ReflowCommentSuggestedActionsSource(
-            ReflowCommentSuggestedActionsSourceProvider provider,
-            ITextView textView,
-            ITextBuffer textBuffer)
-        {
-            _provider = provider;
-            _textView = textView;
-            _textBuffer = textBuffer;
-        }
-
-        public event EventHandler<EventArgs> SuggestedActionsChanged;
+        public event EventHandler<EventArgs> SuggestedActionsChanged { add { } remove { } }
 
         public void Dispose()
         {
@@ -67,23 +54,23 @@ namespace CommentsVS.SuggestedActions
             XmlDocCommentBlock block = TryGetCommentBlockUnderCaret();
             if (block == null)
             {
-                return Enumerable.Empty<SuggestedActionSet>();
+                return [];
             }
 
             ITrackingSpan trackingSpan = range.Snapshot.CreateTrackingSpan(
                 block.Span,
                 SpanTrackingMode.EdgeInclusive);
 
-            var action = new ReflowCommentSuggestedAction(trackingSpan, block, _textBuffer);
+            var action = new ReflowCommentSuggestedAction(trackingSpan, block, textBuffer);
 
-            return new[]
-            {
+            return
+            [
                 new SuggestedActionSet(
                     categoryName: PredefinedSuggestedActionCategoryNames.Refactoring,
-                    actions: new[] { action },
+                    actions: [action],
                     title: "XML Documentation",
                     priority: SuggestedActionSetPriority.Low)
-            };
+            ];
         }
 
         public Task<bool> HasSuggestedActionsAsync(
@@ -109,10 +96,10 @@ namespace CommentsVS.SuggestedActions
         /// </summary>
         private XmlDocCommentBlock TryGetCommentBlockUnderCaret()
         {
-            SnapshotPoint caretPosition = _textView.Caret.Position.BufferPosition;
+            SnapshotPoint caretPosition = textView.Caret.Position.BufferPosition;
             ITextSnapshot snapshot = caretPosition.Snapshot;
 
-            var contentType = _textBuffer.ContentType.TypeName;
+            var contentType = textBuffer.ContentType.TypeName;
             var commentStyle = LanguageCommentStyle.GetForContentType(contentType);
 
             if (commentStyle == null)

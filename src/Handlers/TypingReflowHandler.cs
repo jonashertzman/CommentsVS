@@ -24,7 +24,7 @@ namespace CommentsVS.Handlers
 
         public void TextViewCreated(IWpfTextView textView)
         {
-            textView.Properties.GetOrCreateSingletonProperty(
+            _ = textView.Properties.GetOrCreateSingletonProperty(
                 () => new TypingReflowTracker(textView));
         }
 
@@ -189,8 +189,8 @@ namespace CommentsVS.Handlers
                 {
                     using (ITextEdit edit = _textView.TextBuffer.CreateEdit())
                     {
-                        edit.Replace(block.Span, reflowed);
-                        edit.Apply();
+                        _ = edit.Replace(block.Span, reflowed);
+                        _ = edit.Apply();
                     }
 
                     // Calculate new caret position based on length difference
@@ -204,7 +204,7 @@ namespace CommentsVS.Handlers
                     newCaretPosition = Math.Max(block.Span.Start, Math.Min(newCaretPosition, newSnapshot.Length));
 
                     var newCaretPoint = new SnapshotPoint(newSnapshot, newCaretPosition);
-                    _textView.Caret.MoveTo(newCaretPoint);
+                    _ = _textView.Caret.MoveTo(newCaretPoint);
                 }
                 finally
                 {
