@@ -1,5 +1,7 @@
 namespace CommentsVS.Services
 {
+    using Microsoft.VisualStudio.Utilities;
+
     /// <summary>
     /// Defines language-specific comment syntax patterns.
     /// </summary>
@@ -98,6 +100,36 @@ namespace CommentsVS.Services
 
             if (contentType.IndexOf("C/C++", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 contentType.IndexOf("C++", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return Cpp;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gets the appropriate comment style for a given content type.
+        /// </summary>
+        /// <param name="contentType">The content type.</param>
+        /// <returns>The matching comment style, or null if not supported.</returns>
+        public static LanguageCommentStyle GetForContentType(IContentType contentType)
+        {
+            if (contentType == null)
+            {
+                return null;
+            }
+
+            if (contentType.IsOfType("CSharp"))
+            {
+                return CSharp;
+            }
+
+            if (contentType.IsOfType("Basic"))
+            {
+                return VisualBasic;
+            }
+
+            if (contentType.IsOfType("C/C++"))
             {
                 return Cpp;
             }

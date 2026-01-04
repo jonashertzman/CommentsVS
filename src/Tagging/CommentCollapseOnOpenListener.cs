@@ -56,10 +56,11 @@ namespace CommentsVS.Tagging
             }
 
             var snapshot = textView.TextSnapshot;
-            var contentType = snapshot.ContentType;
-            var commentStyle = contentType.IsOfType("CSharp")
-                ? LanguageCommentStyle.CSharp
-                : LanguageCommentStyle.VisualBasic;
+            var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
+            if (commentStyle == null)
+            {
+                return;
+            }
 
             var parser = new XmlDocCommentParser(commentStyle);
             var commentBlocks = parser.FindAllCommentBlocks(snapshot);
@@ -81,13 +82,11 @@ namespace CommentsVS.Tagging
                     continue;
                 }
 
-                var regionSpan = region.Extent.GetSpan(snapshot);
+                var regionSpan = region.Extent.GetSpan(snapshot).Span;
 
-                // Check if this region matches any of our comment blocks
                 foreach (var block in commentBlocks)
                 {
-                    int adjustedStart = block.Span.Start + block.Indentation.Length;
-                    if (regionSpan.Start == adjustedStart && regionSpan.End == block.Span.End)
+                    if (block.MatchesOutliningSpan(regionSpan))
                     {
                         outliningManager.TryCollapse(region);
                         break;

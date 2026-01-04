@@ -53,11 +53,7 @@ namespace CommentsVS.SuggestedActions
             return Task.Run<object>(async () =>
             {
                 var options = await General.GetLiveInstanceAsync();
-
-                var engine = new CommentReflowEngine(
-                    options.MaxLineLength,
-                    options.UseCompactStyleForShortSummaries,
-                    options.PreserveBlankLines);
+                var engine = options.CreateReflowEngine();
 
                 var reflowed = engine.ReflowComment(_commentBlock);
 
@@ -77,11 +73,7 @@ namespace CommentsVS.SuggestedActions
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
                 var options = await General.GetLiveInstanceAsync();
-
-                var engine = new CommentReflowEngine(
-                    options.MaxLineLength,
-                    options.UseCompactStyleForShortSummaries,
-                    options.PreserveBlankLines);
+                var engine = options.CreateReflowEngine();
 
                 var reflowed = engine.ReflowComment(_commentBlock);
 

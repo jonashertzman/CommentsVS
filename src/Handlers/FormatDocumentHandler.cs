@@ -71,10 +71,7 @@ namespace CommentsVS.Handlers
         {
             var snapshot = buffer.CurrentSnapshot;
             var parser = new XmlDocCommentParser(commentStyle);
-            var engine = new CommentReflowEngine(
-                options.MaxLineLength,
-                options.UseCompactStyleForShortSummaries,
-                options.PreserveBlankLines);
+            var engine = options.CreateReflowEngine();
 
             System.Collections.Generic.IReadOnlyList<XmlDocCommentBlock> blocks;
 

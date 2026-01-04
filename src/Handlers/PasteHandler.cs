@@ -115,10 +115,7 @@ namespace CommentsVS.Handlers
                 return;
             }
 
-            var engine = new CommentReflowEngine(
-                options.MaxLineLength,
-                options.UseCompactStyleForShortSummaries,
-                options.PreserveBlankLines);
+            var engine = options.CreateReflowEngine();
 
             var reflowed = engine.ReflowComment(block);
 

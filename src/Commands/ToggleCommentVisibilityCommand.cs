@@ -45,10 +45,11 @@ namespace CommentsVS.Commands
             }
 
             // Find all XML doc comment blocks
-            var contentType = snapshot.ContentType;
-            var commentStyle = contentType.IsOfType("CSharp")
-                ? LanguageCommentStyle.CSharp
-                : LanguageCommentStyle.VisualBasic;
+            var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
+            if (commentStyle == null)
+            {
+                return;
+            }
 
             var parser = new XmlDocCommentParser(commentStyle);
             var commentBlocks = parser.FindAllCommentBlocks(snapshot);
@@ -116,15 +117,11 @@ namespace CommentsVS.Commands
             IReadOnlyList<XmlDocCommentBlock> commentBlocks,
             ITextSnapshot snapshot)
         {
-            var regionSpan = region.Extent.GetSpan(snapshot);
+            var regionSpan = region.Extent.GetSpan(snapshot).Span;
 
-            // Check if this region matches any of our comment blocks
             foreach (var block in commentBlocks)
             {
-                // The outlining tagger adjusts the span to start after indentation,
-                // so we need to account for that when matching
-                int adjustedStart = block.Span.Start + block.Indentation.Length;
-                if (regionSpan.Start == adjustedStart && regionSpan.End == block.Span.End)
+                if (block.MatchesOutliningSpan(regionSpan))
                 {
                     return true;
                 }

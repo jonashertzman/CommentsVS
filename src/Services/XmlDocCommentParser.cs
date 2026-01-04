@@ -62,6 +62,21 @@ namespace CommentsVS.Services
             CommentStyle = commentStyle;
             IsMultiLineStyle = isMultiLineStyle;
         }
+
+        /// <summary>
+        /// Gets the span adjusted to start after indentation, matching how outlining regions are created.
+        /// </summary>
+        public Span AdjustedSpan => new Span(Span.Start + Indentation.Length, Span.Length - Indentation.Length);
+
+        /// <summary>
+        /// Checks if this comment block matches a given outlining region span.
+        /// </summary>
+        /// <param name="regionSpan">The span of an outlining region.</param>
+        /// <returns>True if the region corresponds to this comment block.</returns>
+        public bool MatchesOutliningSpan(Span regionSpan)
+        {
+            return regionSpan.Start == AdjustedSpan.Start && regionSpan.End == Span.End;
+        }
     }
 
     /// <summary>

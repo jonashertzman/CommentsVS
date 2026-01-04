@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using CommentsVS.Services;
 
 namespace CommentsVS.Options
 {
@@ -56,5 +57,16 @@ namespace CommentsVS.Options
         [Description("When enabled, XML documentation comments will be automatically collapsed when opening a file.")]
         [DefaultValue(false)]
         public bool CollapseCommentsOnFileOpen { get; set; } = false;
+
+        /// <summary>
+        /// Creates a CommentReflowEngine configured with the current options.
+        /// </summary>
+        public CommentReflowEngine CreateReflowEngine()
+        {
+            return new CommentReflowEngine(
+                MaxLineLength,
+                UseCompactStyleForShortSummaries,
+                PreserveBlankLines);
+        }
     }
 }
