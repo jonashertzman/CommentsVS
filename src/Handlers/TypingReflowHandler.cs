@@ -1,0 +1,235 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.Composition;
+using System.Threading;
+using CommentsVS.Options;
+using CommentsVS.Services;
+using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Utilities;
+
+namespace CommentsVS.Handlers
+{
+    /// <summary>
+    /// Monitors typing in XML documentation comments and triggers reflow when lines exceed max length.
+    /// Uses debouncing to ensure smooth typing experience without swallowing characters.
+    /// </summary>
+    [Export(typeof(IWpfTextViewCreationListener))]
+    [ContentType("CSharp")]
+    [ContentType("Basic")]
+    [TextViewRole(PredefinedTextViewRoles.Editable)]
+    internal sealed class TypingReflowHandler : IWpfTextViewCreationListener
+    {
+        private const int DebounceDelayMs = 300;
+
+        public void TextViewCreated(IWpfTextView textView)
+        {
+            textView.Properties.GetOrCreateSingletonProperty(
+                () => new TypingReflowTracker(textView));
+        }
+
+        /// <summary>
+        /// Tracks typing in a specific text view and triggers reflow when appropriate.
+        /// </summary>
+        private sealed class TypingReflowTracker : IDisposable
+        {
+            private readonly IWpfTextView _textView;
+            private CancellationTokenSource _debounceCts;
+            private bool _isReflowing;
+            private bool _disposed;
+
+            public TypingReflowTracker(IWpfTextView textView)
+            {
+                _textView = textView;
+                _textView.TextBuffer.Changed += OnTextBufferChanged;
+                _textView.Closed += OnTextViewClosed;
+            }
+
+            private void OnTextBufferChanged(object sender, TextContentChangedEventArgs e)
+            {
+                if (_isReflowing || _disposed)
+                {
+                    return;
+                }
+
+                // Check setting synchronously before doing any work
+                if (!General.Instance.ReflowOnTyping)
+                {
+                    return;
+                }
+
+                // Only process single-character insertions (typing)
+                if (!IsSingleCharacterTyping(e))
+                {
+                    return;
+                }
+
+                // Get the change position from the event's Changes collection
+                if (e.Changes == null || e.Changes.Count == 0)
+                {
+                    return;
+                }
+
+                int changePosition = e.Changes[0].NewPosition + e.Changes[0].NewLength;
+
+                // Cancel any pending reflow
+                _debounceCts?.Cancel();
+                _debounceCts?.Dispose();
+                _debounceCts = new CancellationTokenSource();
+
+                var token = _debounceCts.Token;
+
+                // Schedule debounced reflow check (fire-and-forget by design for debouncing)
+                _ = ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+                {
+                    try
+                    {
+                        await System.Threading.Tasks.Task.Delay(DebounceDelayMs, token);
+
+                        if (token.IsCancellationRequested)
+                        {
+                            return;
+                        }
+
+                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(token);
+
+                        if (_disposed || token.IsCancellationRequested)
+                        {
+                            return;
+                        }
+
+                        await TryReflowAtPositionAsync(changePosition, token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Expected when typing continues
+                    }
+                });
+            }
+
+            private static bool IsSingleCharacterTyping(TextContentChangedEventArgs e)
+            {
+                if (e.Changes.Count != 1)
+                {
+                    return false;
+                }
+
+                var change = e.Changes[0];
+
+                // Single character insert (not delete, not replace multiple)
+                return change.NewLength >= 1 && change.NewLength <= 2 && change.OldLength == 0;
+            }
+
+            private async System.Threading.Tasks.Task TryReflowAtPositionAsync(int position, CancellationToken token)
+            {
+                var options = await General.GetLiveInstanceAsync();
+
+                var snapshot = _textView.TextSnapshot;
+                if (position >= snapshot.Length)
+                {
+                    position = snapshot.Length > 0 ? snapshot.Length - 1 : 0;
+                }
+
+                // Check if current line exceeds max length (quick check before parsing)
+                var line = snapshot.GetLineFromPosition(position);
+                if (line.Length <= options.MaxLineLength)
+                {
+                    return;
+                }
+
+                var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
+                if (commentStyle == null)
+                {
+                    return;
+                }
+
+                var parser = new XmlDocCommentParser(commentStyle);
+                var block = parser.FindCommentBlockAtPosition(snapshot, position);
+
+                if (block == null)
+                {
+                    return;
+                }
+
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                // Perform reflow
+                var engine = options.CreateReflowEngine();
+                var reflowed = engine.ReflowComment(block);
+
+                if (string.IsNullOrEmpty(reflowed))
+                {
+                    return;
+                }
+
+                // Quick length check before expensive string comparison
+                if (reflowed.Length == block.Span.Length)
+                {
+                    var currentText = snapshot.GetText(block.Span);
+                    if (reflowed == currentText)
+                    {
+                        return;
+                    }
+                }
+
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                // Calculate caret offset from end of block to preserve position
+                int caretPosition = _textView.Caret.Position.BufferPosition.Position;
+                int offsetFromBlockEnd = block.Span.End - caretPosition;
+
+                _isReflowing = true;
+                try
+                {
+                    using (var edit = _textView.TextBuffer.CreateEdit())
+                    {
+                        edit.Replace(block.Span, reflowed);
+                        edit.Apply();
+                    }
+
+                    // Calculate new caret position based on length difference
+                    // Avoids re-parsing the comment block
+                    var newSnapshot = _textView.TextSnapshot;
+                    int lengthDelta = reflowed.Length - block.Span.Length;
+                    int newBlockEnd = block.Span.End + lengthDelta;
+                    int newCaretPosition = newBlockEnd - offsetFromBlockEnd;
+
+                    // Clamp to valid range
+                    newCaretPosition = Math.Max(block.Span.Start, Math.Min(newCaretPosition, newSnapshot.Length));
+
+                    var newCaretPoint = new SnapshotPoint(newSnapshot, newCaretPosition);
+                    _textView.Caret.MoveTo(newCaretPoint);
+                }
+                finally
+                {
+                    _isReflowing = false;
+                }
+            }
+
+            private void OnTextViewClosed(object sender, EventArgs e)
+            {
+                Dispose();
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                _debounceCts?.Cancel();
+                _debounceCts?.Dispose();
+                _textView.TextBuffer.Changed -= OnTextBufferChanged;
+                _textView.Closed -= OnTextViewClosed;
+            }
+        }
+    }
+}

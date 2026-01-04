@@ -31,6 +31,9 @@ When you use **Format Document** (Ctrl+K, Ctrl+D) or **Format Selection** (Ctrl+
 ### Smart Paste
 Paste text into an XML documentation comment, and the extension automatically reflows the entire comment block to maintain proper formatting.
 
+### Auto-Reflow While Typing
+As you type in an XML documentation comment, the extension automatically reflows the text when a line exceeds the maximum length. This happens seamlessly with a slight delay (300ms) after you stop typing, ensuring no characters are swallowed.
+
 ### Light Bulb Action
 Place your cursor inside any XML documentation comment and press **Ctrl+.** to see the "Reflow XML Documentation Comment" action.
 
@@ -66,6 +69,7 @@ Configure the extension behavior via **Tools > Options > CommentsVS > General**.
 | Maximum Line Length | 120 | Maximum line length for reflowed comments |
 | Enable Reflow on Format Document | On | Reflow comments when formatting document/selection |
 | Enable Reflow on Paste | On | Reflow comments when pasting into comment blocks |
+| Enable Reflow While Typing | On | Automatically reflow when line exceeds max length while typing |
 | Use Compact Style for Short Summaries | On | Use single-line format for short summaries |
 | Preserve Blank Lines | On | Keep intentional blank lines in comments |
 

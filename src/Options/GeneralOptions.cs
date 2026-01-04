@@ -39,6 +39,12 @@ namespace CommentsVS.Options
         public bool ReflowOnPaste { get; set; } = true;
 
         [Category(ReflowCategory)]
+        [DisplayName("Enable Reflow While Typing")]
+        [Description("When enabled, XML documentation comments will be automatically reflowed as you type when a line exceeds the maximum length.")]
+        [DefaultValue(true)]
+        public bool ReflowOnTyping { get; set; } = true;
+
+        [Category(ReflowCategory)]
         [DisplayName("Use Compact Style for Short Summaries")]
         [Description("When enabled, short summaries that fit on one line will use the compact format: /// <summary>Short text.</summary>")]
         [DefaultValue(true)]
