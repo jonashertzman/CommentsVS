@@ -74,6 +74,18 @@ Comment tags like TODO, HACK, NOTE, BUG, FIXME, UNDONE, and REVIEW are automatic
 
 Colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment Tag - [TAG]" entries.
 
+### Clickable Issue Links
+Issue references like `#123` in comments automatically become clickable links to the issue on your hosting provider. The extension detects the Git remote URL and supports:
+
+| Provider | Example Link |
+|----------|-------------|
+| GitHub | `https://github.com/owner/repo/issues/123` |
+| GitLab | `https://gitlab.com/owner/repo/-/issues/123` |
+| Bitbucket | `https://bitbucket.org/owner/repo/issues/123` |
+| Azure DevOps | `https://dev.azure.com/org/project/_workitems/edit/123` |
+
+**Ctrl+Click** on any `#123` reference in a comment to open the issue in your browser. Hover over the reference to see a tooltip with the full URL.
+
 ## Options
 
 Configure the extension behavior via **Tools > Options > CommentsVS**.
@@ -92,6 +104,11 @@ Configure the extension behavior via **Tools > Options > CommentsVS**.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Collapse Comments on File Open | Off | Automatically collapse XML doc comments when opening files |
+
+### Issue Links (General)
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Enable Issue Links | On | Make #123 references clickable links to issues |
 
 ### Comment Tags
 | Setting | Default | Description |

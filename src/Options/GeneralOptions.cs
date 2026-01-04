@@ -64,6 +64,14 @@ namespace CommentsVS.Options
         [DefaultValue(false)]
         public bool CollapseCommentsOnFileOpen { get; set; } = false;
 
+        private const string _linksCategory = "Issue Links";
+
+        [Category(_linksCategory)]
+        [DisplayName("Enable Issue Links")]
+        [Description("When enabled, issue references like #123 in comments will become clickable links to the issue on GitHub, GitLab, Bitbucket, or Azure DevOps.")]
+        [DefaultValue(true)]
+        public bool EnableIssueLinks { get; set; } = true;
+
         /// <summary>
         /// Creates a CommentReflowEngine configured with the current options.
         /// </summary>
