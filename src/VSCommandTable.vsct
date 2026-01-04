@@ -19,7 +19,7 @@
     <Buttons>
       <Button guid="CommentsVS" id="ToggleCommentVisibility" priority="0x0100" type="Button">
         <Parent guid="CommentsVS" id="MyMenuGroup" />
-        <Icon guid="ImageCatalogGuid" id="HideCommentGroup" />
+        <Icon guid="ImageCatalogGuid" id="CommentGroup" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>

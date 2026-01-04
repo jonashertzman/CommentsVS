@@ -16,7 +16,7 @@ A Visual Studio extension that brings a modern commenting experience with automa
 ## Features
 
 ### Comment Outlining/Collapsing
-Collapse XML documentation comments to reduce visual clutter and focus on your code. When collapsed, comments display a summary of the content (e.g., `/// Gets the user name...`).
+Collapse XML documentation comments to reduce visual clutter and focus on your code. Uses Visual Studio's built-in outlining regions for XML doc comments.
 
 Use **Ctrl+M, Ctrl+C** to toggle all XML doc comments in the current file between collapsed and expanded states. The extension remembers your preference, so newly opened files will match your last toggle state.
 

@@ -62,7 +62,6 @@
     </Compile>
     <Compile Include="SuggestedActions\ReflowCommentSuggestedAction.cs" />
     <Compile Include="SuggestedActions\ReflowCommentSuggestedActionsSource.cs" />
-    <Compile Include="Tagging\CommentCollapseOnOpenListener.cs" />
     <Compile Include="Tagging\XmlDocCommentOutliningTagger.cs" />
     <Compile Include="VSCommandTable.cs">
       <AutoGen>True</AutoGen>

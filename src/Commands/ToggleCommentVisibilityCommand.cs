@@ -1,8 +1,6 @@
 using System.Collections.Generic;
-using System.ComponentModel.Composition;
 using System.Linq;
 using CommentsVS.Options;
-using CommentsVS.Services;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
@@ -44,29 +42,10 @@ namespace CommentsVS.Commands
                 return;
             }
 
-            // Find all XML doc comment blocks
-            var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
-            if (commentStyle == null)
-            {
-                return;
-            }
-
-            var parser = new XmlDocCommentParser(commentStyle);
-            IReadOnlyList<XmlDocCommentBlock> commentBlocks = parser.FindAllCommentBlocks(snapshot);
-
-            if (!commentBlocks.Any())
-            {
-                await VS.StatusBar.ShowMessageAsync("No XML documentation comments found");
-                return;
-            }
-
-            // Determine current state - are most comments collapsed or expanded?
+            // Get all collapsible regions and filter to XML doc comment regions
             var fullSpan = new SnapshotSpan(snapshot, 0, snapshot.Length);
-            IEnumerable<ICollapsible> allRegions = outliningManager.GetAllRegions(fullSpan);
-            
-            // Filter to only our XML doc comment regions
-            var commentRegions = allRegions
-                .Where(r => IsXmlDocCommentRegion(r, commentBlocks, snapshot))
+            List<ICollapsible> commentRegions = outliningManager.GetAllRegions(fullSpan)
+                .Where(r => IsXmlDocCommentRegion(r, snapshot))
                 .ToList();
 
             if (!commentRegions.Any())
@@ -76,8 +55,8 @@ namespace CommentsVS.Commands
             }
 
             // Check if majority are collapsed
-            var collapsedCount = commentRegions.Count(r => r.IsCollapsed);
-            var shouldExpand = collapsedCount > commentRegions.Count / 2;
+            int collapsedCount = commentRegions.Count(r => r.IsCollapsed);
+            bool shouldExpand = collapsedCount > commentRegions.Count / 2;
 
             if (shouldExpand)
             {
@@ -112,22 +91,13 @@ namespace CommentsVS.Commands
             }
         }
 
-        private static bool IsXmlDocCommentRegion(
-            ICollapsible region,
-            IReadOnlyList<XmlDocCommentBlock> commentBlocks,
-            ITextSnapshot snapshot)
+        private static bool IsXmlDocCommentRegion(ICollapsible region, ITextSnapshot snapshot)
         {
-            Span regionSpan = region.Extent.GetSpan(snapshot).Span;
+            SnapshotSpan span = region.Extent.GetSpan(snapshot);
+            string text = span.GetText().TrimStart();
 
-            foreach (XmlDocCommentBlock block in commentBlocks)
-            {
-                if (block.MatchesOutliningSpan(regionSpan))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            // Check if region starts with XML doc comment prefix
+            return text.StartsWith("///") || text.StartsWith("'''");
         }
     }
 }
