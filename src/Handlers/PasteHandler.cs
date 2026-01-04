@@ -25,12 +25,12 @@ namespace CommentsVS.Handlers
             // Don't block the paste, let it happen first
             // We need to check BEFORE paste where the caret is, then AFTER paste reflow if needed
 
-            var textView = args.TextView;
-            var textBuffer = args.SubjectBuffer;
+            ITextView textView = args.TextView;
+            ITextBuffer textBuffer = args.SubjectBuffer;
 
             // Get the current position before paste
-            int caretPositionBeforePaste = textView.Caret.Position.BufferPosition.Position;
-            var snapshotBeforePaste = textBuffer.CurrentSnapshot;
+            var caretPositionBeforePaste = textView.Caret.Position.BufferPosition.Position;
+            ITextSnapshot snapshotBeforePaste = textBuffer.CurrentSnapshot;
 
             // Check if we're in a doc comment before paste
             var contentType = textBuffer.ContentType.TypeName;
@@ -42,7 +42,7 @@ namespace CommentsVS.Handlers
             }
 
             var parser = new XmlDocCommentParser(commentStyle);
-            var blockBeforePaste = parser.FindCommentBlockAtPosition(snapshotBeforePaste, caretPositionBeforePaste);
+            XmlDocCommentBlock blockBeforePaste = parser.FindCommentBlockAtPosition(snapshotBeforePaste, caretPositionBeforePaste);
 
             if (blockBeforePaste == null)
             {
@@ -83,13 +83,13 @@ namespace CommentsVS.Handlers
             int originalCaretPosition,
             XmlDocCommentBlock originalBlock)
         {
-            var options = await General.GetLiveInstanceAsync();
+            General options = await General.GetLiveInstanceAsync();
             if (!options.ReflowOnPaste)
             {
                 return;
             }
 
-            var snapshot = textBuffer.CurrentSnapshot;
+            ITextSnapshot snapshot = textBuffer.CurrentSnapshot;
             var contentType = textBuffer.ContentType.TypeName;
 
             var commentStyle = LanguageCommentStyle.GetForContentType(contentType);
@@ -101,8 +101,8 @@ namespace CommentsVS.Handlers
             var parser = new XmlDocCommentParser(commentStyle);
 
             // Find the comment block at the caret's current position (after paste)
-            int newCaretPosition = textView.Caret.Position.BufferPosition.Position;
-            var block = parser.FindCommentBlockAtPosition(snapshot, newCaretPosition);
+            var newCaretPosition = textView.Caret.Position.BufferPosition.Position;
+            XmlDocCommentBlock block = parser.FindCommentBlockAtPosition(snapshot, newCaretPosition);
 
             if (block == null)
             {
@@ -115,13 +115,13 @@ namespace CommentsVS.Handlers
                 return;
             }
 
-            var engine = options.CreateReflowEngine();
+            CommentReflowEngine engine = options.CreateReflowEngine();
 
             var reflowed = engine.ReflowComment(block);
 
             if (!string.IsNullOrEmpty(reflowed))
             {
-                using (var edit = textBuffer.CreateEdit())
+                using (ITextEdit edit = textBuffer.CreateEdit())
                 {
                     edit.Replace(block.Span, reflowed);
                     edit.Apply();

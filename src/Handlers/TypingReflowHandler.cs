@@ -1,9 +1,9 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Threading;
+
 using CommentsVS.Options;
 using CommentsVS.Services;
+
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
@@ -20,7 +20,7 @@ namespace CommentsVS.Handlers
     [TextViewRole(PredefinedTextViewRoles.Editable)]
     internal sealed class TypingReflowHandler : IWpfTextViewCreationListener
     {
-        private const int DebounceDelayMs = 300;
+        private const int _debounceDelayMs = 300;
 
         public void TextViewCreated(IWpfTextView textView)
         {
@@ -70,21 +70,21 @@ namespace CommentsVS.Handlers
                     return;
                 }
 
-                int changePosition = e.Changes[0].NewPosition + e.Changes[0].NewLength;
+                var changePosition = e.Changes[0].NewPosition + e.Changes[0].NewLength;
 
                 // Cancel any pending reflow
                 _debounceCts?.Cancel();
                 _debounceCts?.Dispose();
                 _debounceCts = new CancellationTokenSource();
 
-                var token = _debounceCts.Token;
+                CancellationToken token = _debounceCts.Token;
 
                 // Schedule debounced reflow check (fire-and-forget by design for debouncing)
                 _ = ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
                 {
                     try
                     {
-                        await System.Threading.Tasks.Task.Delay(DebounceDelayMs, token);
+                        await System.Threading.Tasks.Task.Delay(_debounceDelayMs, token);
 
                         if (token.IsCancellationRequested)
                         {
@@ -114,7 +114,7 @@ namespace CommentsVS.Handlers
                     return false;
                 }
 
-                var change = e.Changes[0];
+                ITextChange change = e.Changes[0];
 
                 // Single character insert (not delete, not replace multiple)
                 return change.NewLength >= 1 && change.NewLength <= 2 && change.OldLength == 0;
@@ -122,16 +122,16 @@ namespace CommentsVS.Handlers
 
             private async System.Threading.Tasks.Task TryReflowAtPositionAsync(int position, CancellationToken token)
             {
-                var options = await General.GetLiveInstanceAsync();
+                General options = await General.GetLiveInstanceAsync();
 
-                var snapshot = _textView.TextSnapshot;
+                ITextSnapshot snapshot = _textView.TextSnapshot;
                 if (position >= snapshot.Length)
                 {
                     position = snapshot.Length > 0 ? snapshot.Length - 1 : 0;
                 }
 
                 // Check if current line exceeds max length (quick check before parsing)
-                var line = snapshot.GetLineFromPosition(position);
+                ITextSnapshotLine line = snapshot.GetLineFromPosition(position);
                 if (line.Length <= options.MaxLineLength)
                 {
                     return;
@@ -144,7 +144,7 @@ namespace CommentsVS.Handlers
                 }
 
                 var parser = new XmlDocCommentParser(commentStyle);
-                var block = parser.FindCommentBlockAtPosition(snapshot, position);
+                XmlDocCommentBlock block = parser.FindCommentBlockAtPosition(snapshot, position);
 
                 if (block == null)
                 {
@@ -157,7 +157,7 @@ namespace CommentsVS.Handlers
                 }
 
                 // Perform reflow
-                var engine = options.CreateReflowEngine();
+                CommentReflowEngine engine = options.CreateReflowEngine();
                 var reflowed = engine.ReflowComment(block);
 
                 if (string.IsNullOrEmpty(reflowed))
@@ -181,13 +181,13 @@ namespace CommentsVS.Handlers
                 }
 
                 // Calculate caret offset from end of block to preserve position
-                int caretPosition = _textView.Caret.Position.BufferPosition.Position;
-                int offsetFromBlockEnd = block.Span.End - caretPosition;
+                var caretPosition = _textView.Caret.Position.BufferPosition.Position;
+                var offsetFromBlockEnd = block.Span.End - caretPosition;
 
                 _isReflowing = true;
                 try
                 {
-                    using (var edit = _textView.TextBuffer.CreateEdit())
+                    using (ITextEdit edit = _textView.TextBuffer.CreateEdit())
                     {
                         edit.Replace(block.Span, reflowed);
                         edit.Apply();
@@ -195,10 +195,10 @@ namespace CommentsVS.Handlers
 
                     // Calculate new caret position based on length difference
                     // Avoids re-parsing the comment block
-                    var newSnapshot = _textView.TextSnapshot;
-                    int lengthDelta = reflowed.Length - block.Span.Length;
-                    int newBlockEnd = block.Span.End + lengthDelta;
-                    int newCaretPosition = newBlockEnd - offsetFromBlockEnd;
+                    ITextSnapshot newSnapshot = _textView.TextSnapshot;
+                    var lengthDelta = reflowed.Length - block.Span.Length;
+                    var newBlockEnd = block.Span.End + lengthDelta;
+                    var newCaretPosition = newBlockEnd - offsetFromBlockEnd;
 
                     // Clamp to valid range
                     newCaretPosition = Math.Max(block.Span.Start, Math.Min(newCaretPosition, newSnapshot.Length));

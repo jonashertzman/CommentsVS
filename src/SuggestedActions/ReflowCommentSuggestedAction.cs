@@ -52,8 +52,8 @@ namespace CommentsVS.SuggestedActions
         {
             return Task.Run<object>(async () =>
             {
-                var options = await General.GetLiveInstanceAsync();
-                var engine = options.CreateReflowEngine();
+                General options = await General.GetLiveInstanceAsync();
+                CommentReflowEngine engine = options.CreateReflowEngine();
 
                 var reflowed = engine.ReflowComment(_commentBlock);
 
@@ -72,25 +72,25 @@ namespace CommentsVS.SuggestedActions
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-                var options = await General.GetLiveInstanceAsync();
-                var engine = options.CreateReflowEngine();
+                General options = await General.GetLiveInstanceAsync();
+                CommentReflowEngine engine = options.CreateReflowEngine();
 
                 var reflowed = engine.ReflowComment(_commentBlock);
 
                 if (!string.IsNullOrEmpty(reflowed))
                 {
-                    var snapshot = _textBuffer.CurrentSnapshot;
+                    ITextSnapshot snapshot = _textBuffer.CurrentSnapshot;
 
                     // Re-parse to get current span (might have shifted)
-                    var commentStyle = _commentBlock.CommentStyle;
+                    LanguageCommentStyle commentStyle = _commentBlock.CommentStyle;
                     var parser = new XmlDocCommentParser(commentStyle);
 
-                    var currentSpan = _trackingSpan.GetSpan(snapshot);
-                    var currentBlock = parser.FindCommentBlockAtPosition(snapshot, currentSpan.Start);
+                    SnapshotSpan currentSpan = _trackingSpan.GetSpan(snapshot);
+                    XmlDocCommentBlock currentBlock = parser.FindCommentBlockAtPosition(snapshot, currentSpan.Start);
 
                     if (currentBlock != null)
                     {
-                        using (var edit = _textBuffer.CreateEdit())
+                        using (ITextEdit edit = _textBuffer.CreateEdit())
                         {
                             edit.Replace(currentBlock.Span, reflowed);
                             edit.Apply();

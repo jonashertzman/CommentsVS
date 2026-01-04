@@ -26,22 +26,20 @@ namespace CommentsVS.Services
         private readonly bool _preserveBlankLines;
 
         // XML tags that should typically stay on their own line or preserve formatting
-        private static readonly HashSet<string> BlockTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> _blockTags = new(StringComparer.OrdinalIgnoreCase)
         {
             "summary", "remarks", "returns", "value", "example", "exception",
             "param", "typeparam", "seealso", "permission", "include"
         };
 
         // Tags whose content should not be reflowed (preformatted)
-        private static readonly HashSet<string> PreformattedTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> _preformattedTags = new(StringComparer.OrdinalIgnoreCase)
         {
             "code"
         };
 
         // Regex to parse XML elements
-        private static readonly Regex ElementRegex = new Regex(
-            @"<(\w+)([^>]*)>(.*?)</\1>|<(\w+)([^/>]*)/?>",
-            RegexOptions.Singleline | RegexOptions.Compiled);
+        private static readonly Regex _elementRegex = new(@"<(\w+)([^>]*)>(.*?)</\1>|<(\w+)([^/>]*)/?>", RegexOptions.Singleline | RegexOptions.Compiled);
 
         public CommentReflowEngine(int maxLineLength, bool useCompactStyle, bool preserveBlankLines)
         {
@@ -57,33 +55,33 @@ namespace CommentsVS.Services
         {
             if (block == null) throw new ArgumentNullException(nameof(block));
 
-            string xmlContent = block.XmlContent;
+            var xmlContent = block.XmlContent;
             if (string.IsNullOrWhiteSpace(xmlContent))
             {
                 return null;
             }
 
             // Parse XML elements using regex
-            var elements = ParseXmlElements(xmlContent);
+            List<XmlElement> elements = ParseXmlElements(xmlContent);
             if (elements.Count == 0)
             {
                 return null;
             }
 
             var reflowedLines = new List<string>();
-            string prefix = block.IsMultiLineStyle
+            var prefix = block.IsMultiLineStyle
                 ? block.CommentStyle.MultiLineContinuation?.TrimEnd() ?? " *"
                 : block.CommentStyle.SingleLineDocPrefix;
 
-            string linePrefix = block.Indentation + prefix + " ";
-            int availableWidth = _maxLineLength - linePrefix.Length;
+            var linePrefix = block.Indentation + prefix + " ";
+            var availableWidth = _maxLineLength - linePrefix.Length;
 
             if (availableWidth < 20)
             {
                 availableWidth = 20;
             }
 
-            foreach (var element in elements)
+            foreach (XmlElement element in elements)
             {
                 ReflowElement(element, reflowedLines, linePrefix, availableWidth);
             }
@@ -97,7 +95,7 @@ namespace CommentsVS.Services
         private List<XmlElement> ParseXmlElements(string content)
         {
             var elements = new List<XmlElement>();
-            var matches = ElementRegex.Matches(content);
+            MatchCollection matches = _elementRegex.Matches(content);
 
             foreach (Match match in matches)
             {
@@ -133,8 +131,8 @@ namespace CommentsVS.Services
         /// </summary>
         private void ReflowElement(XmlElement element, List<string> lines, string linePrefix, int availableWidth)
         {
-            bool isBlockTag = BlockTags.Contains(element.TagName);
-            bool isPreformatted = PreformattedTags.Contains(element.TagName);
+            var isBlockTag = _blockTags.Contains(element.TagName);
+            var isPreformatted = _preformattedTags.Contains(element.TagName);
 
             // Self-closing tags
             if (string.IsNullOrEmpty(element.CloseTag))
@@ -149,14 +147,14 @@ namespace CommentsVS.Services
                 return;
             }
 
-            string innerContent = NormalizeWhitespace(element.Content);
+            var innerContent = NormalizeWhitespace(element.Content);
 
             // Check if content fits on a single line (compact style)
             if (_useCompactStyle && isBlockTag)
             {
-                string singleLine = $"{element.OpenTag}{innerContent}{element.CloseTag}";
-                if (singleLine.Length <= availableWidth && 
-                    !innerContent.Contains("\n") && 
+                var singleLine = $"{element.OpenTag}{innerContent}{element.CloseTag}";
+                if (singleLine.Length <= availableWidth &&
+                    !innerContent.Contains("\n") &&
                     !ContainsBlankLineSeparator(innerContent))
                 {
                     lines.Add(linePrefix + singleLine);
@@ -167,7 +165,7 @@ namespace CommentsVS.Services
             // Multi-line format
             lines.Add(linePrefix + element.OpenTag);
 
-            var paragraphs = SplitIntoParagraphs(innerContent);
+            List<string> paragraphs = SplitIntoParagraphs(innerContent);
 
             foreach (var paragraph in paragraphs)
             {
@@ -180,7 +178,7 @@ namespace CommentsVS.Services
                     continue;
                 }
 
-                var wrappedLines = WrapText(paragraph.Trim(), availableWidth);
+                List<string> wrappedLines = WrapText(paragraph.Trim(), availableWidth);
                 foreach (var wrappedLine in wrappedLines)
                 {
                     lines.Add(linePrefix + wrappedLine);
@@ -197,7 +195,7 @@ namespace CommentsVS.Services
         {
             lines.Add(linePrefix + element.OpenTag);
 
-            var contentLines = element.Content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            var contentLines = element.Content.Split(["\r\n", "\n"], StringSplitOptions.None);
             foreach (var line in contentLines)
             {
                 lines.Add(linePrefix + line);
@@ -223,7 +221,7 @@ namespace CommentsVS.Services
 
             foreach (var line in contentLines)
             {
-                string normalized = Regex.Replace(line, @"[ \t]+", " ").Trim();
+                var normalized = Regex.Replace(line, @"[ \t]+", " ").Trim();
                 normalizedLines.Add(normalized);
             }
 
@@ -279,13 +277,13 @@ namespace CommentsVS.Services
                 return lines;
             }
 
-            var tokens = TokenizeWithXmlTags(text);
+            List<string> tokens = TokenizeWithXmlTags(text);
             var currentLine = new StringBuilder();
-            int currentLength = 0;
+            var currentLength = 0;
 
             foreach (var token in tokens)
             {
-                int tokenLength = token.Length;
+                var tokenLength = token.Length;
 
                 if (currentLength == 0)
                 {
@@ -319,7 +317,7 @@ namespace CommentsVS.Services
         {
             var tokens = new List<string>();
             var regex = new Regex(@"(<[^>]+>)|(\S+)");
-            var matches = regex.Matches(text);
+            MatchCollection matches = regex.Matches(text);
 
             foreach (Match match in matches)
             {
@@ -355,7 +353,7 @@ namespace CommentsVS.Services
             }
             else
             {
-                for (int i = 0; i < lines.Count; i++)
+                for (var i = 0; i < lines.Count; i++)
                 {
                     sb.Append(lines[i]);
                     if (i < lines.Count - 1)

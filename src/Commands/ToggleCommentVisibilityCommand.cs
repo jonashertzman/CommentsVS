@@ -25,19 +25,19 @@ namespace CommentsVS.Commands
 
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
-            var docView = await VS.Documents.GetActiveDocumentViewAsync();
+            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
             if (docView?.TextView == null)
             {
                 return;
             }
 
-            var textView = docView.TextView;
-            var snapshot = textView.TextSnapshot;
+            IWpfTextView textView = docView.TextView;
+            ITextSnapshot snapshot = textView.TextSnapshot;
 
             // Get the outlining manager service
-            var componentModel = await VS.Services.GetComponentModelAsync();
-            var outliningManagerService = componentModel.GetService<IOutliningManagerService>();
-            var outliningManager = outliningManagerService?.GetOutliningManager(textView);
+            IComponentModel2 componentModel = await VS.Services.GetComponentModelAsync();
+            IOutliningManagerService outliningManagerService = componentModel.GetService<IOutliningManagerService>();
+            IOutliningManager outliningManager = outliningManagerService?.GetOutliningManager(textView);
 
             if (outliningManager == null)
             {
@@ -52,7 +52,7 @@ namespace CommentsVS.Commands
             }
 
             var parser = new XmlDocCommentParser(commentStyle);
-            var commentBlocks = parser.FindAllCommentBlocks(snapshot);
+            IReadOnlyList<XmlDocCommentBlock> commentBlocks = parser.FindAllCommentBlocks(snapshot);
 
             if (!commentBlocks.Any())
             {
@@ -62,7 +62,7 @@ namespace CommentsVS.Commands
 
             // Determine current state - are most comments collapsed or expanded?
             var fullSpan = new SnapshotSpan(snapshot, 0, snapshot.Length);
-            var allRegions = outliningManager.GetAllRegions(fullSpan);
+            IEnumerable<ICollapsible> allRegions = outliningManager.GetAllRegions(fullSpan);
             
             // Filter to only our XML doc comment regions
             var commentRegions = allRegions
@@ -76,13 +76,13 @@ namespace CommentsVS.Commands
             }
 
             // Check if majority are collapsed
-            int collapsedCount = commentRegions.Count(r => r.IsCollapsed);
-            bool shouldExpand = collapsedCount > commentRegions.Count / 2;
+            var collapsedCount = commentRegions.Count(r => r.IsCollapsed);
+            var shouldExpand = collapsedCount > commentRegions.Count / 2;
 
             if (shouldExpand)
             {
                 // Expand all XML doc comment regions
-                foreach (var region in commentRegions.Where(r => r.IsCollapsed))
+                foreach (ICollapsible region in commentRegions.Where(r => r.IsCollapsed))
                 {
                     if (region is ICollapsed collapsed)
                     {
@@ -99,7 +99,7 @@ namespace CommentsVS.Commands
             else
             {
                 // Collapse all XML doc comment regions
-                foreach (var region in commentRegions.Where(r => !r.IsCollapsed))
+                foreach (ICollapsible region in commentRegions.Where(r => !r.IsCollapsed))
                 {
                     outliningManager.TryCollapse(region);
                 }
@@ -117,9 +117,9 @@ namespace CommentsVS.Commands
             IReadOnlyList<XmlDocCommentBlock> commentBlocks,
             ITextSnapshot snapshot)
         {
-            var regionSpan = region.Extent.GetSpan(snapshot).Span;
+            Span regionSpan = region.Extent.GetSpan(snapshot).Span;
 
-            foreach (var block in commentBlocks)
+            foreach (XmlDocCommentBlock block in commentBlocks)
             {
                 if (block.MatchesOutliningSpan(regionSpan))
                 {

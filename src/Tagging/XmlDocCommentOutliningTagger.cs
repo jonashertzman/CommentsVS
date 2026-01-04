@@ -30,7 +30,7 @@ namespace CommentsVS.Tagging
     internal sealed class XmlDocCommentOutliningTagger : ITagger<IOutliningRegionTag>
     {
         // Match <summary>content</summary> on a single line - captures content inside
-        private static readonly Regex SingleLineSummaryRegex = new Regex(
+        private static readonly Regex SingleLineSummaryRegex = new(
             @"<summary>\s*(.*?)\s*</summary>",
             RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -47,7 +47,7 @@ namespace CommentsVS.Tagging
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
             // Notify that tags may have changed when buffer content changes
-            var snapshot = _buffer.CurrentSnapshot;
+            ITextSnapshot snapshot = _buffer.CurrentSnapshot;
             TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
                 new SnapshotSpan(snapshot, 0, snapshot.Length)));
         }
@@ -59,23 +59,23 @@ namespace CommentsVS.Tagging
                 yield break;
             }
 
-            var snapshot = spans[0].Snapshot;
-            var contentType = snapshot.ContentType;
-            var commentStyle = contentType.IsOfType("CSharp")
+            ITextSnapshot snapshot = spans[0].Snapshot;
+            IContentType contentType = snapshot.ContentType;
+            LanguageCommentStyle commentStyle = contentType.IsOfType("CSharp")
                 ? LanguageCommentStyle.CSharp
                 : LanguageCommentStyle.VisualBasic;
 
             var parser = new XmlDocCommentParser(commentStyle);
-            var commentBlocks = parser.FindAllCommentBlocks(snapshot);
+            IReadOnlyList<XmlDocCommentBlock> commentBlocks = parser.FindAllCommentBlocks(snapshot);
 
             // Check if we should auto-collapse on file open
-            bool collapseByDefault = General.Instance.CollapseCommentsOnFileOpen;
+            var collapseByDefault = General.Instance.CollapseCommentsOnFileOpen;
 
-            foreach (var block in commentBlocks)
+            foreach (XmlDocCommentBlock block in commentBlocks)
             {
                 // Adjust span to start after indentation so the collapsed text
                 // appears at the same column as the comment, not at column 0
-                int adjustedStart = block.Span.Start + block.Indentation.Length;
+                var adjustedStart = block.Span.Start + block.Indentation.Length;
                 var adjustedSpan = new Span(adjustedStart, block.Span.End - adjustedStart);
                 var blockSpan = new SnapshotSpan(snapshot, adjustedSpan);
 
@@ -85,7 +85,7 @@ namespace CommentsVS.Tagging
                 }
 
                 // Get the collapsed text to display
-                string collapsedText = GetCollapsedText(snapshot, block, commentStyle);
+                var collapsedText = GetCollapsedText(snapshot, block, commentStyle);
 
                 var tag = new OutliningRegionTag(
                     collapsedForm: collapsedText,
@@ -100,11 +100,11 @@ namespace CommentsVS.Tagging
         private static string GetCollapsedText(ITextSnapshot snapshot, XmlDocCommentBlock block, LanguageCommentStyle commentStyle)
         {
             // Get the first line text
-            var firstLine = snapshot.GetLineFromLineNumber(block.StartLine);
-            string lineText = firstLine.GetText().Trim();
+            ITextSnapshotLine firstLine = snapshot.GetLineFromLineNumber(block.StartLine);
+            var lineText = firstLine.GetText().Trim();
 
             // Check if this is a single-line compact summary: /// <summary>text</summary>
-            var match = SingleLineSummaryRegex.Match(lineText);
+            Match match = SingleLineSummaryRegex.Match(lineText);
             if (match.Success)
             {
                 // Return the whole line for compact summaries

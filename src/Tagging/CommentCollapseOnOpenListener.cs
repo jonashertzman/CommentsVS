@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
 using CommentsVS.Options;
@@ -49,13 +50,13 @@ namespace CommentsVS.Tagging
                 return;
             }
 
-            var outliningManager = OutliningManagerService?.GetOutliningManager(textView);
+            IOutliningManager outliningManager = OutliningManagerService?.GetOutliningManager(textView);
             if (outliningManager == null)
             {
                 return;
             }
 
-            var snapshot = textView.TextSnapshot;
+            ITextSnapshot snapshot = textView.TextSnapshot;
             var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
             if (commentStyle == null)
             {
@@ -63,7 +64,7 @@ namespace CommentsVS.Tagging
             }
 
             var parser = new XmlDocCommentParser(commentStyle);
-            var commentBlocks = parser.FindAllCommentBlocks(snapshot);
+            IReadOnlyList<XmlDocCommentBlock> commentBlocks = parser.FindAllCommentBlocks(snapshot);
 
             if (!commentBlocks.Any())
             {
@@ -72,19 +73,19 @@ namespace CommentsVS.Tagging
 
             // Get all collapsible regions
             var fullSpan = new SnapshotSpan(snapshot, 0, snapshot.Length);
-            var allRegions = outliningManager.GetAllRegions(fullSpan);
+            IEnumerable<ICollapsible> allRegions = outliningManager.GetAllRegions(fullSpan);
 
             // Collapse XML doc comment regions
-            foreach (var region in allRegions)
+            foreach (ICollapsible region in allRegions)
             {
                 if (region.IsCollapsed)
                 {
                     continue;
                 }
 
-                var regionSpan = region.Extent.GetSpan(snapshot).Span;
+                Span regionSpan = region.Extent.GetSpan(snapshot).Span;
 
-                foreach (var block in commentBlocks)
+                foreach (XmlDocCommentBlock block in commentBlocks)
                 {
                     if (block.MatchesOutliningSpan(regionSpan))
                     {

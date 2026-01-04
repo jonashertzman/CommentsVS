@@ -27,7 +27,7 @@ namespace CommentsVS.Handlers
         {
             return ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
-                var options = await General.GetLiveInstanceAsync();
+                General options = await General.GetLiveInstanceAsync();
                 if (!options.ReflowOnFormatDocument)
                 {
                     return CommandProgression.Continue;
@@ -42,7 +42,7 @@ namespace CommentsVS.Handlers
                 ITextBuffer buffer = docView.TextBuffer;
                 ITextView textView = docView.TextView;
 
-                string contentType = buffer.ContentType.TypeName;
+                var contentType = buffer.ContentType.TypeName;
                 var commentStyle = LanguageCommentStyle.GetForContentType(contentType);
 
                 if (commentStyle == null)
@@ -69,15 +69,15 @@ namespace CommentsVS.Handlers
             General options,
             bool selectionOnly)
         {
-            var snapshot = buffer.CurrentSnapshot;
+            ITextSnapshot snapshot = buffer.CurrentSnapshot;
             var parser = new XmlDocCommentParser(commentStyle);
-            var engine = options.CreateReflowEngine();
+            CommentReflowEngine engine = options.CreateReflowEngine();
 
             System.Collections.Generic.IReadOnlyList<XmlDocCommentBlock> blocks;
 
             if (selectionOnly && !textView.Selection.IsEmpty)
             {
-                var selectionSpan = textView.Selection.SelectedSpans[0];
+                SnapshotSpan selectionSpan = textView.Selection.SelectedSpans[0];
                 var span = new Span(selectionSpan.Start.Position, selectionSpan.Length);
                 blocks = parser.FindCommentBlocksInSpan(snapshot, span);
             }
@@ -91,11 +91,11 @@ namespace CommentsVS.Handlers
                 return;
             }
 
-            using (var edit = buffer.CreateEdit())
+            using (ITextEdit edit = buffer.CreateEdit())
             {
-                for (int i = blocks.Count - 1; i >= 0; i--)
+                for (var i = blocks.Count - 1; i >= 0; i--)
                 {
-                    var block = blocks[i];
+                    XmlDocCommentBlock block = blocks[i];
                     var reflowed = engine.ReflowComment(block);
 
                     if (!string.IsNullOrEmpty(reflowed))

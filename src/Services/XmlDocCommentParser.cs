@@ -66,7 +66,7 @@ namespace CommentsVS.Services
         /// <summary>
         /// Gets the span adjusted to start after indentation, matching how outlining regions are created.
         /// </summary>
-        public Span AdjustedSpan => new Span(Span.Start + Indentation.Length, Span.Length - Indentation.Length);
+        public Span AdjustedSpan => new(Span.Start + Indentation.Length, Span.Length - Indentation.Length);
 
         /// <summary>
         /// Checks if this comment block matches a given outlining region span.
@@ -101,12 +101,12 @@ namespace CommentsVS.Services
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
 
             var blocks = new List<XmlDocCommentBlock>();
-            int lineCount = snapshot.LineCount;
-            int currentLine = 0;
+            var lineCount = snapshot.LineCount;
+            var currentLine = 0;
 
             while (currentLine < lineCount)
             {
-                var block = TryParseCommentBlockAt(snapshot, currentLine);
+                XmlDocCommentBlock block = TryParseCommentBlockAt(snapshot, currentLine);
                 if (block != null)
                 {
                     blocks.Add(block);
@@ -136,8 +136,8 @@ namespace CommentsVS.Services
                 return null;
             }
 
-            var line = snapshot.GetLineFromPosition(position);
-            int lineNumber = line.LineNumber;
+            ITextSnapshotLine line = snapshot.GetLineFromPosition(position);
+            var lineNumber = line.LineNumber;
 
             // First, check if the current line is a doc comment line
             if (!IsDocCommentLine(line.GetText()))
@@ -146,10 +146,10 @@ namespace CommentsVS.Services
             }
 
             // Search backwards to find the start of the comment block
-            int startLine = lineNumber;
+            var startLine = lineNumber;
             while (startLine > 0)
             {
-                var prevLine = snapshot.GetLineFromLineNumber(startLine - 1);
+                ITextSnapshotLine prevLine = snapshot.GetLineFromLineNumber(startLine - 1);
                 if (!IsDocCommentLine(prevLine.GetText()))
                 {
                     break;
@@ -172,15 +172,15 @@ namespace CommentsVS.Services
 
             var blocks = new List<XmlDocCommentBlock>();
 
-            int startLine = snapshot.GetLineFromPosition(span.Start).LineNumber;
-            int endLine = snapshot.GetLineFromPosition(span.End).LineNumber;
+            var startLine = snapshot.GetLineFromPosition(span.Start).LineNumber;
+            var endLine = snapshot.GetLineFromPosition(span.End).LineNumber;
 
-            int currentLine = startLine;
+            var currentLine = startLine;
 
             // Search backwards to find if startLine is in the middle of a comment block
             while (currentLine > 0)
             {
-                var prevLine = snapshot.GetLineFromLineNumber(currentLine - 1);
+                ITextSnapshotLine prevLine = snapshot.GetLineFromLineNumber(currentLine - 1);
                 if (!IsDocCommentLine(prevLine.GetText()))
                 {
                     break;
@@ -191,7 +191,7 @@ namespace CommentsVS.Services
             // Now parse forward
             while (currentLine <= endLine)
             {
-                var block = TryParseCommentBlockAt(snapshot, currentLine);
+                XmlDocCommentBlock block = TryParseCommentBlockAt(snapshot, currentLine);
                 if (block != null)
                 {
                     blocks.Add(block);
@@ -216,11 +216,11 @@ namespace CommentsVS.Services
                 return null;
             }
 
-            var firstLine = snapshot.GetLineFromLineNumber(startLine);
-            string firstLineText = firstLine.GetText();
+            ITextSnapshotLine firstLine = snapshot.GetLineFromLineNumber(startLine);
+            var firstLineText = firstLine.GetText();
 
             // Try single-line doc comment style (///, ''')
-            var singleLineBlock = TryParseSingleLineCommentBlock(snapshot, startLine, firstLineText);
+            XmlDocCommentBlock singleLineBlock = TryParseSingleLineCommentBlock(snapshot, startLine, firstLineText);
             if (singleLineBlock != null)
             {
                 return singleLineBlock;
@@ -229,7 +229,7 @@ namespace CommentsVS.Services
             // Try multi-line doc comment style (/** */)
             if (_commentStyle.SupportsMultiLineDoc)
             {
-                var multiLineBlock = TryParseMultiLineCommentBlock(snapshot, startLine, firstLineText);
+                XmlDocCommentBlock multiLineBlock = TryParseMultiLineCommentBlock(snapshot, startLine, firstLineText);
                 if (multiLineBlock != null)
                 {
                     return multiLineBlock;
@@ -247,8 +247,8 @@ namespace CommentsVS.Services
             int startLine,
             string firstLineText)
         {
-            string prefix = _commentStyle.SingleLineDocPrefix;
-            string trimmedFirst = firstLineText.TrimStart();
+            var prefix = _commentStyle.SingleLineDocPrefix;
+            var trimmedFirst = firstLineText.TrimStart();
 
             if (!trimmedFirst.StartsWith(prefix, StringComparison.Ordinal))
             {
@@ -256,16 +256,16 @@ namespace CommentsVS.Services
             }
 
             // Extract indentation
-            string indentation = firstLineText.Substring(0, firstLineText.Length - trimmedFirst.Length);
+            var indentation = firstLineText.Substring(0, firstLineText.Length - trimmedFirst.Length);
 
             var xmlContentBuilder = new StringBuilder();
-            int endLine = startLine;
+            var endLine = startLine;
 
-            for (int i = startLine; i < snapshot.LineCount; i++)
+            for (var i = startLine; i < snapshot.LineCount; i++)
             {
-                var line = snapshot.GetLineFromLineNumber(i);
-                string lineText = line.GetText();
-                string trimmedLine = lineText.TrimStart();
+                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(i);
+                var lineText = line.GetText();
+                var trimmedLine = lineText.TrimStart();
 
                 if (!trimmedLine.StartsWith(prefix, StringComparison.Ordinal))
                 {
@@ -273,7 +273,7 @@ namespace CommentsVS.Services
                 }
 
                 // Extract content after the prefix
-                string content = trimmedLine.Substring(prefix.Length);
+                var content = trimmedLine.Substring(prefix.Length);
 
                 // Remove leading single space if present (standard formatting)
                 if (content.Length > 0 && content[0] == ' ')
@@ -290,11 +290,11 @@ namespace CommentsVS.Services
                 endLine = i;
             }
 
-            var firstSnapshotLine = snapshot.GetLineFromLineNumber(startLine);
-            var lastSnapshotLine = snapshot.GetLineFromLineNumber(endLine);
+            ITextSnapshotLine firstSnapshotLine = snapshot.GetLineFromLineNumber(startLine);
+            ITextSnapshotLine lastSnapshotLine = snapshot.GetLineFromLineNumber(endLine);
             
             // Use End position (not EndIncludingLineBreak) to avoid affecting the next line
-            int spanEnd = lastSnapshotLine.End.Position;
+            var spanEnd = lastSnapshotLine.End.Position;
             var span = new Span(firstSnapshotLine.Start.Position, spanEnd - firstSnapshotLine.Start.Position);
 
             return new XmlDocCommentBlock(
@@ -315,28 +315,28 @@ namespace CommentsVS.Services
             int startLine,
             string firstLineText)
         {
-            string trimmedFirst = firstLineText.TrimStart();
+            var trimmedFirst = firstLineText.TrimStart();
 
             if (!trimmedFirst.StartsWith(_commentStyle.MultiLineDocStart, StringComparison.Ordinal))
             {
                 return null;
             }
 
-            string indentation = firstLineText.Substring(0, firstLineText.Length - trimmedFirst.Length);
+            var indentation = firstLineText.Substring(0, firstLineText.Length - trimmedFirst.Length);
             var xmlContentBuilder = new StringBuilder();
-            int endLine = startLine;
+            var endLine = startLine;
 
             // Handle content on the opening line after /**
-            string openingContent = trimmedFirst.Substring(_commentStyle.MultiLineDocStart.Length);
+            var openingContent = trimmedFirst.Substring(_commentStyle.MultiLineDocStart.Length);
 
             // Check if single-line: /** content */
-            int closeIndex = openingContent.IndexOf(_commentStyle.MultiLineDocEnd, StringComparison.Ordinal);
+            var closeIndex = openingContent.IndexOf(_commentStyle.MultiLineDocEnd, StringComparison.Ordinal);
             if (closeIndex >= 0)
             {
-                string content = openingContent.Substring(0, closeIndex).Trim();
+                var content = openingContent.Substring(0, closeIndex).Trim();
                 xmlContentBuilder.Append(content);
 
-                var line = snapshot.GetLineFromLineNumber(startLine);
+                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(startLine);
                 var span = new Span(line.Start.Position, line.End.Position - line.Start.Position);
 
                 return new XmlDocCommentBlock(
@@ -355,18 +355,18 @@ namespace CommentsVS.Services
                 xmlContentBuilder.Append(openingContent.Trim());
             }
 
-            for (int i = startLine + 1; i < snapshot.LineCount; i++)
+            for (var i = startLine + 1; i < snapshot.LineCount; i++)
             {
-                var line = snapshot.GetLineFromLineNumber(i);
-                string lineText = line.GetText();
-                string trimmedLine = lineText.TrimStart();
+                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(i);
+                var lineText = line.GetText();
+                var trimmedLine = lineText.TrimStart();
                 endLine = i;
 
                 closeIndex = trimmedLine.IndexOf(_commentStyle.MultiLineDocEnd, StringComparison.Ordinal);
                 if (closeIndex >= 0)
                 {
                     // Found the end
-                    string content = trimmedLine.Substring(0, closeIndex);
+                    var content = trimmedLine.Substring(0, closeIndex);
                     content = StripContinuationPrefix(content);
 
                     if (xmlContentBuilder.Length > 0 && !string.IsNullOrWhiteSpace(content))
@@ -379,7 +379,7 @@ namespace CommentsVS.Services
                 }
 
                 // Middle line
-                string middleContent = StripContinuationPrefix(trimmedLine).TrimEnd();
+                var middleContent = StripContinuationPrefix(trimmedLine).TrimEnd();
 
                 if (xmlContentBuilder.Length > 0)
                 {
@@ -389,8 +389,8 @@ namespace CommentsVS.Services
                 xmlContentBuilder.Append(middleContent);
             }
 
-            var firstSnapshotLine = snapshot.GetLineFromLineNumber(startLine);
-            var lastSnapshotLine = snapshot.GetLineFromLineNumber(endLine);
+            ITextSnapshotLine firstSnapshotLine = snapshot.GetLineFromLineNumber(startLine);
+            ITextSnapshotLine lastSnapshotLine = snapshot.GetLineFromLineNumber(endLine);
             var blockSpan = new Span(
                 firstSnapshotLine.Start.Position,
                 lastSnapshotLine.End.Position - firstSnapshotLine.Start.Position);
@@ -410,14 +410,14 @@ namespace CommentsVS.Services
         /// </summary>
         private string StripContinuationPrefix(string line)
         {
-            string continuation = _commentStyle.MultiLineContinuation;
+            var continuation = _commentStyle.MultiLineContinuation;
             if (string.IsNullOrEmpty(continuation))
             {
                 return line;
             }
 
             // Handle variations like "* ", " *", "*"
-            string trimmed = line.TrimStart();
+            var trimmed = line.TrimStart();
             if (trimmed.StartsWith("*", StringComparison.Ordinal))
             {
                 trimmed = trimmed.Substring(1);
@@ -436,7 +436,7 @@ namespace CommentsVS.Services
         /// </summary>
         private bool IsDocCommentLine(string lineText)
         {
-            string trimmed = lineText.TrimStart();
+            var trimmed = lineText.TrimStart();
 
             if (trimmed.StartsWith(_commentStyle.SingleLineDocPrefix, StringComparison.Ordinal))
             {

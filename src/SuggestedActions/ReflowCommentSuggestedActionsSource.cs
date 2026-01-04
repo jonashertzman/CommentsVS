@@ -64,13 +64,13 @@ namespace CommentsVS.SuggestedActions
             SnapshotSpan range,
             CancellationToken cancellationToken)
         {
-            var block = TryGetCommentBlockUnderCaret();
+            XmlDocCommentBlock block = TryGetCommentBlockUnderCaret();
             if (block == null)
             {
                 return Enumerable.Empty<SuggestedActionSet>();
             }
 
-            var trackingSpan = range.Snapshot.CreateTrackingSpan(
+            ITrackingSpan trackingSpan = range.Snapshot.CreateTrackingSpan(
                 block.Span,
                 SpanTrackingMode.EdgeInclusive);
 
@@ -93,7 +93,7 @@ namespace CommentsVS.SuggestedActions
         {
             return Task.Run(() =>
             {
-                var block = TryGetCommentBlockUnderCaret();
+                XmlDocCommentBlock block = TryGetCommentBlockUnderCaret();
                 return block != null;
             }, cancellationToken);
         }
@@ -109,8 +109,8 @@ namespace CommentsVS.SuggestedActions
         /// </summary>
         private XmlDocCommentBlock TryGetCommentBlockUnderCaret()
         {
-            var caretPosition = _textView.Caret.Position.BufferPosition;
-            var snapshot = caretPosition.Snapshot;
+            SnapshotPoint caretPosition = _textView.Caret.Position.BufferPosition;
+            ITextSnapshot snapshot = caretPosition.Snapshot;
 
             var contentType = _textBuffer.ContentType.TypeName;
             var commentStyle = LanguageCommentStyle.GetForContentType(contentType);
