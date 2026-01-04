@@ -48,5 +48,13 @@ namespace CommentsVS.Options
         [Description("When enabled, blank lines within XML documentation comments (paragraph separators) will be preserved during reflow.")]
         [DefaultValue(true)]
         public bool PreserveBlankLines { get; set; } = true;
+
+        private const string OutliningCategory = "Comment Outlining";
+
+        [Category(OutliningCategory)]
+        [DisplayName("Collapse Comments on File Open")]
+        [Description("When enabled, XML documentation comments will be automatically collapsed when opening a file.")]
+        [DefaultValue(false)]
+        public bool CollapseCommentsOnFileOpen { get; set; } = false;
     }
 }

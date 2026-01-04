@@ -277,7 +277,10 @@ namespace CommentsVS.Services
 
             var firstSnapshotLine = snapshot.GetLineFromLineNumber(startLine);
             var lastSnapshotLine = snapshot.GetLineFromLineNumber(endLine);
-            var span = new Span(firstSnapshotLine.Start.Position, lastSnapshotLine.End.Position - firstSnapshotLine.Start.Position);
+            
+            // Use End position (not EndIncludingLineBreak) to avoid affecting the next line
+            int spanEnd = lastSnapshotLine.End.Position;
+            var span = new Span(firstSnapshotLine.Start.Position, spanEnd - firstSnapshotLine.Start.Position);
 
             return new XmlDocCommentBlock(
                 span,

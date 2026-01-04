@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using CommentsVS.Options;
 using CommentsVS.Services;
+
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.Language.Intellisense;
@@ -37,7 +39,7 @@ namespace CommentsVS.SuggestedActions
 
         public string IconAutomationText => null;
 
-        public ImageMoniker IconMoniker => KnownMonikers.FormatDocument;
+        public ImageMoniker IconMoniker => KnownMonikers.Comment;
 
         public string InputGestureText => null;
 

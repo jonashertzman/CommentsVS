@@ -10,9 +10,9 @@ namespace CommentsVS
     {
         public const string Id = "CommentsVS.38981599-e7f2-4db8-bf34-85b325aec2b6";
         public const string Name = "Comments";
-        public const string Description = @"Empty VSIX Project.";
+        public const string Description = @"A modern commenting experience for Visual Studio with automatic XML documentation comment reformatting.";
         public const string Language = "en-US";
-        public const string Version = "1.0";
+        public const string Version = "1.0.902";
         public const string Author = "Mads Kristensen";
         public const string Tags = "";
         public const bool IsPreview = false;

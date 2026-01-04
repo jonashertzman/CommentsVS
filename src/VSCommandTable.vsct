@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
   <Extern href="stdidcmd.h"/>
@@ -8,30 +8,45 @@
 
   <Commands package="CommentsVS">
     <Groups>
-      <Group guid="CommentsVS" id="MyMenuGroup" priority="0x0600">
-        <Parent guid="VSMainMenu" id="Tools"/>
+      <Group guid="CommentsVS" id="MyMenuGroup" priority="0x0900">
+        <Parent guid="VSEditor" id="Edit.LanguageInfoGroup.Advanced"/>
+      </Group>
+      <Group guid="CommentsVS" id="ToolbarGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_TOOL_STANDARD"/>
       </Group>
     </Groups>
 
-    <!--This section defines the elements the user can interact with, like a menu command or a button
-        or combo box in a toolbar. -->
     <Buttons>
-      <Button guid="CommentsVS" id="MyCommand" priority="0x0100" type="Button">
+      <Button guid="CommentsVS" id="ToggleCommentVisibility" priority="0x0100" type="Button">
         <Parent guid="CommentsVS" id="MyMenuGroup" />
-        <Icon guid="ImageCatalogGuid" id="StatusInformation" />
+        <Icon guid="ImageCatalogGuid" id="HideCommentGroup" />
         <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
-          <ButtonText>My Command</ButtonText>
-          <LocCanonicalName>.CommentsVS.MyCommand</LocCanonicalName>
+          <ButtonText>Toggle XML Comment Visibility</ButtonText>
+          <CanonicalName>.CommentsVS.ToggleCommentVisibility</CanonicalName>
+          <LocCanonicalName>.CommentsVS.ToggleCommentVisibility</LocCanonicalName>
+          <ToolTipText>Toggle visibility of XML documentation comments (Ctrl+M, Ctrl+C)</ToolTipText>
         </Strings>
       </Button>
     </Buttons>
   </Commands>
 
+  <CommandPlacements>
+    <CommandPlacement guid="CommentsVS" id="ToggleCommentVisibility" priority="0x0100">
+      <Parent guid="CommentsVS" id="ToolbarGroup"/>
+    </CommandPlacement>
+  </CommandPlacements>
+
+  <KeyBindings>
+    <KeyBinding guid="CommentsVS" id="ToggleCommentVisibility" editor="guidVSStd97" key1="M" mod1="Control" key2="C" mod2="Control" />
+  </KeyBindings>
+
   <Symbols>
     <GuidSymbol name="CommentsVS" value="{77a569d5-61e8-47ce-9e0f-9477ca6922d4}">
       <IDSymbol name="MyMenuGroup" value="0x0001" />
-      <IDSymbol name="MyCommand" value="0x0100" />
+      <IDSymbol name="ToolbarGroup" value="0x0002" />
+      <IDSymbol name="ToggleCommentVisibility" value="0x0200" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

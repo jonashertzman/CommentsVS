@@ -18,7 +18,7 @@ A Visual Studio extension that brings a modern commenting experience with automa
 ### Comment Outlining/Collapsing
 Collapse XML documentation comments to reduce visual clutter and focus on your code. When collapsed, comments display the first 100 characters of the summary text.
 
-Use **Ctrl+M, Ctrl+H** to toggle all XML doc comments in the current file between collapsed and expanded states. The extension remembers your preference, so newly opened files will match your last toggle state.
+Use **Ctrl+M, Ctrl+C** to toggle all XML doc comments in the current file between collapsed and expanded states. The extension remembers your preference, so newly opened files will match your last toggle state.
 
 ![Collapsed Comments](art/collapsed.png)
 
