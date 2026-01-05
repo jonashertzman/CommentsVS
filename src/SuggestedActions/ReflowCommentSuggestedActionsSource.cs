@@ -2,11 +2,13 @@ using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Threading;
 using System.Threading.Tasks;
+using CommentsVS.Options;
 using CommentsVS.Services;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Operations;
+using Microsoft.VisualStudio.Text.Outlining;
 using Microsoft.VisualStudio.Utilities;
 
 namespace CommentsVS.SuggestedActions
@@ -22,6 +24,9 @@ namespace CommentsVS.SuggestedActions
         [Import(typeof(ITextStructureNavigatorSelectorService))]
         internal ITextStructureNavigatorSelectorService NavigatorService { get; set; }
 
+        [Import]
+        internal IOutliningManagerService OutliningManagerService { get; set; }
+
         public ISuggestedActionsSource CreateSuggestedActionsSource(ITextView textView, ITextBuffer textBuffer)
         {
             if (textView == null || textBuffer == null)
@@ -29,7 +34,9 @@ namespace CommentsVS.SuggestedActions
                 return null;
             }
 
-            return new ReflowCommentSuggestedActionsSource(textView, textBuffer);
+            IOutliningManager outliningManager = OutliningManagerService?.GetOutliningManager(textView);
+
+            return new ReflowCommentSuggestedActionsSource(textView, textBuffer, outliningManager);
         }
     }
 
@@ -38,7 +45,8 @@ namespace CommentsVS.SuggestedActions
     /// </summary>
     internal sealed class ReflowCommentSuggestedActionsSource(
         ITextView textView,
-        ITextBuffer textBuffer) : ISuggestedActionsSource
+        ITextBuffer textBuffer,
+        IOutliningManager outliningManager) : ISuggestedActionsSource
     {
         public event EventHandler<EventArgs> SuggestedActionsChanged { add { } remove { } }
 
@@ -52,7 +60,7 @@ namespace CommentsVS.SuggestedActions
             CancellationToken cancellationToken)
         {
             XmlDocCommentBlock block = TryGetCommentBlockUnderCaret();
-            if (block == null)
+            if (block == null || !WouldReflowChangeAnything(block))
             {
                 return [];
             }
@@ -61,7 +69,12 @@ namespace CommentsVS.SuggestedActions
                 block.Span,
                 SpanTrackingMode.EdgeInclusive);
 
-            var action = new ReflowCommentSuggestedAction(trackingSpan, block, textBuffer);
+            var action = new ReflowCommentSuggestedAction(
+                trackingSpan, 
+                block, 
+                textBuffer,
+                textView as IWpfTextView,
+                outliningManager);
 
             return
             [
@@ -81,7 +94,7 @@ namespace CommentsVS.SuggestedActions
             return Task.Run(() =>
             {
                 XmlDocCommentBlock block = TryGetCommentBlockUnderCaret();
-                return block != null;
+                return block != null && WouldReflowChangeAnything(block);
             }, cancellationToken);
         }
 
@@ -89,6 +102,41 @@ namespace CommentsVS.SuggestedActions
         {
             telemetryId = Guid.Empty;
             return false;
+        }
+
+        /// <summary>
+        /// Checks if reflowing the comment block would actually change anything.
+        /// </summary>
+        private bool WouldReflowChangeAnything(XmlDocCommentBlock block)
+        {
+            // Get the current settings
+            General options = General.Instance;
+            int maxLineLength = options.MaxLineLength;
+
+            // Check if any line exceeds the threshold
+            ITextSnapshot snapshot = textBuffer.CurrentSnapshot;
+            for (int lineNum = block.StartLine; lineNum <= block.EndLine; lineNum++)
+            {
+                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(lineNum);
+                if (line.Length > maxLineLength)
+                {
+                    return true;
+                }
+            }
+
+            // Also check if reflow would produce different output
+            // (e.g., compact style conversion, multi-line to single-line, etc.)
+            CommentReflowEngine engine = options.CreateReflowEngine();
+            string reflowed = engine.ReflowComment(block);
+
+            if (reflowed == null)
+            {
+                return false;
+            }
+
+            // Compare with original text
+            string originalText = snapshot.GetText(block.Span);
+            return !string.Equals(originalText, reflowed, StringComparison.Ordinal);
         }
 
         /// <summary>

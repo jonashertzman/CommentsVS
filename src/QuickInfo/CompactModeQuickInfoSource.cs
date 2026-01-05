@@ -9,6 +9,7 @@ using System.Windows.Media;
 using CommentsVS.Options;
 using CommentsVS.Services;
 using Microsoft.VisualStudio.Language.Intellisense;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Utilities;
 
@@ -41,7 +42,7 @@ namespace CommentsVS.QuickInfo
             _textBuffer = textBuffer;
         }
 
-        public Task<QuickInfoItem> GetQuickInfoItemAsync(
+        public async Task<QuickInfoItem> GetQuickInfoItemAsync(
             IAsyncQuickInfoSession session,
             CancellationToken cancellationToken)
         {
@@ -49,20 +50,20 @@ namespace CommentsVS.QuickInfo
             RenderingMode renderingMode = General.Instance.CommentRenderingMode;
             if (renderingMode != RenderingMode.Compact)
             {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
 
             SnapshotPoint? triggerPoint = session.GetTriggerPoint(_textBuffer.CurrentSnapshot);
             if (!triggerPoint.HasValue)
             {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
 
             ITextSnapshot snapshot = triggerPoint.Value.Snapshot;
-            var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
+            LanguageCommentStyle commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
             if (commentStyle == null)
             {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
 
             var parser = new XmlDocCommentParser(commentStyle);
@@ -70,7 +71,7 @@ namespace CommentsVS.QuickInfo
 
             if (block == null)
             {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
 
             // Render the comment in full format
@@ -90,19 +91,22 @@ namespace CommentsVS.QuickInfo
 
             if (!hasAdditionalSections && !summaryTruncated && !summaryHasListContent)
             {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
+
+            // Switch to UI thread to create WPF elements
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
             // Create the tooltip content
             FrameworkElement tooltipContent = CreateFullRenderingTooltip(renderedComment);
             
             if (tooltipContent == null)
             {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
 
             ITrackingSpan trackingSpan = snapshot.CreateTrackingSpan(block.Span, SpanTrackingMode.EdgeInclusive);
-            return Task.FromResult(new QuickInfoItem(trackingSpan, tooltipContent));
+            return new QuickInfoItem(trackingSpan, tooltipContent);
         }
 
         /// <summary>

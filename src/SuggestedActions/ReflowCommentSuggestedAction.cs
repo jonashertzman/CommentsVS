@@ -1,14 +1,15 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-
+using CommentsVS.Adornments;
 using CommentsVS.Options;
 using CommentsVS.Services;
-
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Text.Outlining;
 
 namespace CommentsVS.SuggestedActions
 {
@@ -18,7 +19,9 @@ namespace CommentsVS.SuggestedActions
     internal sealed class ReflowCommentSuggestedAction(
         ITrackingSpan trackingSpan,
         XmlDocCommentBlock commentBlock,
-        ITextBuffer textBuffer) : ISuggestedAction
+        ITextBuffer textBuffer,
+        IWpfTextView textView,
+        IOutliningManager outliningManager) : ISuggestedAction
     {
         public string DisplayText => "Reflow comment";
 
@@ -60,6 +63,37 @@ namespace CommentsVS.SuggestedActions
             ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+                // If in rendered mode, switch to raw source view first
+                RenderingMode renderingMode = General.Instance.CommentRenderingMode;
+                if (renderingMode == RenderingMode.Compact || renderingMode == RenderingMode.Full)
+                {
+                    // Hide the rendered adornment for this comment
+                    if (textView.Properties.TryGetProperty(typeof(RenderedCommentIntraTextTagger), out RenderedCommentIntraTextTagger tagger))
+                    {
+                        tagger.HandleEscapeKey(commentBlock.StartLine);
+                    }
+                }
+
+                // Expand any collapsed outlining regions that contain this comment
+                if (outliningManager != null)
+                {
+                    try
+                    {
+                        ITextSnapshot snapshot = textBuffer.CurrentSnapshot;
+                        var blockSpan = new SnapshotSpan(snapshot, commentBlock.Span);
+                        IEnumerable<ICollapsed> collapsedRegions = outliningManager.GetCollapsedRegions(blockSpan);
+
+                        foreach (ICollapsed region in collapsedRegions)
+                        {
+                            outliningManager.Expand(region);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore errors when expanding regions
+                    }
+                }
 
                 General options = await General.GetLiveInstanceAsync();
                 CommentReflowEngine engine = options.CreateReflowEngine();
