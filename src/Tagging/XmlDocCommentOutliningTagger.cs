@@ -14,6 +14,9 @@ namespace CommentsVS.Tagging
     [TagType(typeof(IOutliningRegionTag))]
     [ContentType("CSharp")]
     [ContentType("Basic")]
+    [Order(Before = "default")]
+    [Order(Before = "Structure")]
+    [Name("XmlDocCommentOutliningTagger")]
     internal sealed class XmlDocCommentOutliningTaggerProvider : ITaggerProvider
     {
         public ITagger<T> CreateTagger<T>(ITextBuffer buffer) where T : ITag
@@ -60,9 +63,10 @@ namespace CommentsVS.Tagging
 
         public IEnumerable<ITagSpan<IOutliningRegionTag>> GetTags(NormalizedSnapshotSpanCollection spans)
         {
-            // Don't provide outlining when rendered comments are enabled
-            // The IntraTextAdornment will handle the display instead
-            if (General.Instance.EnableRenderedComments)
+            var renderingMode = General.Instance.CommentRenderingMode;
+
+            // In Compact/Full mode, IntraTextAdornment handles display - no outlining needed
+            if (renderingMode == RenderingMode.Compact || renderingMode == RenderingMode.Full)
             {
                 yield break;
             }
@@ -84,6 +88,7 @@ namespace CommentsVS.Tagging
             var parser = new XmlDocCommentParser(commentStyle);
             IReadOnlyList<XmlDocCommentBlock> commentBlocks = parser.FindAllCommentBlocks(snapshot);
 
+            // Off mode: standard VS outlining
             var collapseByDefault = General.Instance.CollapseCommentsOnFileOpen;
 
             foreach (XmlDocCommentBlock block in commentBlocks)
@@ -99,9 +104,9 @@ namespace CommentsVS.Tagging
                     continue;
                 }
 
-                // Get first line as collapsed text (without indentation)
+                // Off mode: show first line as-is (with comment prefix)
                 ITextSnapshotLine firstLine = snapshot.GetLineFromLineNumber(block.StartLine);
-                var collapsedText = firstLine.GetText().TrimStart();
+                string collapsedText = firstLine.GetText().TrimStart();
 
                 var tag = new OutliningRegionTag(
                     collapsedForm: collapsedText,

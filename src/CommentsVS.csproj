@@ -57,11 +57,11 @@
     <Compile Include="Handlers\IssueReferenceClickHandler.cs" />
     <Compile Include="Handlers\PasteHandler.cs" />
     <Compile Include="Handlers\TypingReflowHandler.cs" />
-    <Compile Include="Options\CommentTagsOptions.cs" />
     <Compile Include="Options\GeneralOptions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="CommentsVSPackage.cs" />
     <Compile Include="QuickInfo\CommentTagQuickInfoSource.cs" />
+    <Compile Include="QuickInfo\CompactModeQuickInfoSource.cs" />
     <Compile Include="QuickInfo\IssueReferenceQuickInfoSource.cs" />
     <Compile Include="Services\CommentReflowEngine.cs" />
     <Compile Include="Services\GitRepositoryService.cs" />

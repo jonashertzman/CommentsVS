@@ -65,6 +65,9 @@ namespace CommentsVS.Adornments
             ToggleRenderedCommentsCommand.RenderedCommentsStateChanged += OnRenderedStateChanged;
             view.Caret.PositionChanged += OnCaretPositionChanged;
 
+            // Listen for zoom level changes to refresh adornments with new font size
+            view.ZoomLevelChanged += OnZoomLevelChanged;
+
             // Hook into keyboard events at multiple levels
             view.VisualElement.PreviewKeyDown += OnViewKeyDown;
 
@@ -77,6 +80,12 @@ namespace CommentsVS.Adornments
 
             // Store tagger in view properties so command handler can find it
             view.Properties[typeof(RenderedCommentIntraTextTagger)] = this;
+        }
+
+        private void OnZoomLevelChanged(object sender, ZoomLevelChangedEventArgs e)
+        {
+            // Refresh all adornments when zoom changes so font size updates
+            RefreshTags();
         }
 
         /// <summary>
@@ -97,7 +106,7 @@ namespace CommentsVS.Adornments
 
         private void HandleEscapeKeyInternal()
         {
-            if (!General.Instance.EnableRenderedComments)
+            if (General.Instance.CommentRenderingMode != RenderingMode.Full)
                 return;
 
             var caretLine = view.Caret.Position.BufferPosition.GetContainingLine().LineNumber;
@@ -122,7 +131,7 @@ namespace CommentsVS.Adornments
 
         private void OnViewKeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Escape && General.Instance.EnableRenderedComments)
+            if (e.Key == Key.Escape && General.Instance.CommentRenderingMode == RenderingMode.Full)
             {
                 // Check if caret is on a rendered comment line
                 var caretLine = view.Caret.Position.BufferPosition.GetContainingLine().LineNumber;
@@ -228,216 +237,317 @@ namespace CommentsVS.Adornments
 #pragma warning restore VSTHRD001, VSTHRD110
         }
 
+
+
+
+
+
+
+
         protected override IEnumerable<Tuple<SnapshotSpan, PositionAffinity?, XmlDocCommentBlock>> GetAdornmentData(
             NormalizedSnapshotSpanCollection spans)
         {
-            if (!General.Instance.EnableRenderedComments || spans.Count == 0)
+            var renderingMode = General.Instance.CommentRenderingMode;
+
+            // Only provide adornments in Compact or Full mode
+            if (renderingMode != RenderingMode.Compact && renderingMode != RenderingMode.Full)
+            {
                 yield break;
+            }
+
+            if (spans.Count == 0)
+            {
+                yield break;
+            }
 
             ITextSnapshot snapshot = spans[0].Snapshot;
             var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
+
             if (commentStyle == null)
+            {
                 yield break;
+            }
 
             var parser = new XmlDocCommentParser(commentStyle);
-            IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
+            IReadOnlyList<XmlDocCommentBlock> commentBlocks = parser.FindAllCommentBlocks(snapshot);
 
-            foreach (XmlDocCommentBlock block in blocks)
+            foreach (XmlDocCommentBlock block in commentBlocks)
             {
-                // Skip comments that are temporarily hidden
+                // Skip temporarily hidden comments (user pressed ESC to edit)
                 if (_temporarilyHiddenComments.Contains(block.StartLine))
+                {
                     continue;
+                }
 
-                // Create span that covers entire comment including indentation
-                // This ensures the rendered view starts at the exact same position as the comment
-                var adjustedSpan = new SnapshotSpan(snapshot, block.Span.Start, block.Span.Length);
+                var blockSpan = new SnapshotSpan(snapshot, block.Span);
 
-                if (!spans.IntersectsWith(new NormalizedSnapshotSpanCollection(adjustedSpan)))
+                if (!spans.IntersectsWith(new NormalizedSnapshotSpanCollection(blockSpan)))
+                {
                     continue;
+                }
 
-                // For non-zero length spans, affinity should be null
-                yield return Tuple.Create(adjustedSpan, (PositionAffinity?)null, block);
+                // The adornment replaces the entire comment block span
+                yield return Tuple.Create(blockSpan, (PositionAffinity?)PositionAffinity.Predecessor, block);
             }
         }
 
         protected override FrameworkElement CreateAdornment(XmlDocCommentBlock block, SnapshotSpan span)
         {
-            return CreateRenderedCommentElement(block);
-        }
+            var renderingMode = General.Instance.CommentRenderingMode;
 
-        protected override bool UpdateAdornment(FrameworkElement adornment, XmlDocCommentBlock data)
-        {
-            // Return false to recreate the adornment
-            return false;
-        }
-
-        private FrameworkElement CreateRenderedCommentElement(XmlDocCommentBlock block)
-        {
-            RenderedComment renderedComment = XmlDocCommentRenderer.Render(block);
-
-            var fontSize = view.FormattedLineSource?.DefaultTextProperties?.FontRenderingEmSize ?? 13.0;
+            // Get editor font settings - use 1pt smaller than editor font
+            var editorFontSize = view.FormattedLineSource?.DefaultTextProperties?.FontRenderingEmSize ?? 13.0;
+            var fontSize = Math.Max(editorFontSize - 1.0, 8.0); // At least 8pt
             var fontFamily = view.FormattedLineSource?.DefaultTextProperties?.Typeface?.FontFamily
                 ?? new FontFamily("Consolas");
 
-            // Calculate character width for monospace font
-            var charWidth = fontSize * 0.6;  // Approximate width of a character in monospace
+            // Gray color for subtle appearance
+            var textBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128));
+            var headingBrush = new SolidColorBrush(Color.FromRgb(100, 100, 100));
 
-            // Calculate indentation width in pixels
-            var indentWidth = block.Indentation.Length * charWidth;
+            // Calculate the pixel width for the indentation margin
+            var indentMargin = CalculateIndentationWidth(block.Indentation, fontFamily, editorFontSize);
 
-            // Gray color palette for clean, subtle appearance
-            var textBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128));        // Gray for all text
-            var linkBrush = new SolidColorBrush(Color.FromRgb(86, 156, 214));         // VS blue for links
-            var codeBrush = new SolidColorBrush(Color.FromRgb(180, 180, 180));        // Lighter gray for code
-            var paramBrush = new SolidColorBrush(Color.FromRgb(150, 150, 150));       // Medium gray for params
-
-            // Main container - no padding/margin to match exact line height
-            var outerBorder = new Border
+            if (renderingMode == RenderingMode.Full)
             {
-                Background = Brushes.Transparent,  // No background
-                Padding = new Thickness(0),  // No padding to avoid indentation
-                Margin = new Thickness(indentWidth, 0, 0, 0),  // Add left margin for indentation
-                Focusable = true,
-                Tag = block.StartLine,
-                UseLayoutRounding = true,
-                SnapsToDevicePixels = true
+                return CreateFullModeAdornment(block, fontSize, fontFamily, textBrush, headingBrush, indentMargin);
+            }
+            else
+            {
+                return CreateCompactModeAdornment(block, fontSize, fontFamily, textBrush, indentMargin);
+            }
+        }
+
+        /// <summary>
+        /// Calculates the pixel width of the indentation string using the editor font.
+        /// </summary>
+        private double CalculateIndentationWidth(string indentation, FontFamily fontFamily, double fontSize)
+        {
+            if (string.IsNullOrEmpty(indentation))
+            {
+                return 0;
+            }
+
+            // Use a FormattedText to measure the width of the indentation
+            var formattedText = new FormattedText(
+                indentation,
+                System.Globalization.CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                new Typeface(fontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+                fontSize,
+                Brushes.Black,
+                VisualTreeHelper.GetDpi(view.VisualElement).PixelsPerDip);
+
+            return formattedText.WidthIncludingTrailingWhitespace;
+        }
+
+        private FrameworkElement CreateCompactModeAdornment(XmlDocCommentBlock block, double fontSize,
+            FontFamily fontFamily, Brush textBrush, double indentMargin)
+        {
+            // Compact: single line with stripped summary
+            var strippedSummary = XmlDocCommentRenderer.GetStrippedSummary(block);
+            if (string.IsNullOrWhiteSpace(strippedSummary))
+            {
+                strippedSummary = "...";
+            }
+
+            var textBlock = new TextBlock
+            {
+                Text = strippedSummary,
+                FontFamily = fontFamily,
+                FontSize = fontSize,
+                Foreground = textBrush,
+                Background = Brushes.Transparent,
+                TextWrapping = TextWrapping.NoWrap,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(indentMargin, 0, 0, 0),
+                ToolTip = CreateTooltip(block)
             };
 
-            // Add double-click handler to hide this specific comment's rendering
-            outerBorder.MouseLeftButtonDown += (s, e) =>
+            return textBlock;
+        }
+
+        private FrameworkElement CreateFullModeAdornment(XmlDocCommentBlock block, double fontSize,
+            FontFamily fontFamily, Brush textBrush, Brush headingBrush, double indentMargin)
+        {
+            RenderedComment rendered = XmlDocCommentRenderer.Render(block);
+
+            // If only summary, use compact display
+            if (!rendered.HasAdditionalSections)
             {
-                if (e.ClickCount == 2 && s is Border border && border.Tag is int startLine)
+                return CreateCompactModeAdornment(block, fontSize, fontFamily, textBrush, indentMargin);
+            }
+
+            // Calculate line height for spacing
+            var lineHeight = fontSize * 1.4;
+
+            // Full mode: show all sections with improved formatting and whitespace
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Background = Brushes.Transparent,
+                Margin = new Thickness(indentMargin, 0, 0, 0)
+            };
+
+            // Summary line (semibold for emphasis)
+            var summary = XmlDocCommentRenderer.GetStrippedSummary(block);
+            if (!string.IsNullOrWhiteSpace(summary))
+            {
+                panel.Children.Add(new TextBlock
                 {
-                    HideCommentRendering(startLine);
-                    e.Handled = true;
-                }
-            };
+                    Text = summary,
+                    FontFamily = fontFamily,
+                    FontSize = fontSize,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = textBrush,
+                    TextWrapping = TextWrapping.NoWrap,
+                    Margin = new Thickness(0, 0, 0, lineHeight * 0.3) // Spacing after summary
+                });
+            }
 
-            // Add keyboard handler for ESC key on the border
-            outerBorder.KeyDown += (s, e) =>
+            // Group params and type params
+            var paramSections = rendered.AdditionalSections
+                .Where(s => s.Type == CommentSectionType.Param)
+                .ToList();
+            var typeParamSections = rendered.AdditionalSections
+                .Where(s => s.Type == CommentSectionType.TypeParam)
+                .ToList();
+            var otherSections = rendered.AdditionalSections
+                .Where(s => s.Type != CommentSectionType.Param && s.Type != CommentSectionType.TypeParam)
+                .ToList();
+
+            // Type parameters (if any)
+            if (typeParamSections.Count > 0)
             {
-                if (e.Key == Key.Escape && s is Border border && border.Tag is int startLine)
+                foreach (RenderedCommentSection section in typeParamSections)
                 {
-                    HideCommentRendering(startLine);
-                    e.Handled = true;
+                    AddParameterLine(panel, section, fontSize, fontFamily, textBrush, headingBrush, lineHeight);
                 }
-            };
+                // Add spacing after type params group if there are more sections
+                if (paramSections.Count > 0 || otherSections.Count > 0)
+                {
+                    panel.Children.Add(CreateSpacer(lineHeight * 0.2));
+                }
+            }
 
-            // Ensure the border gets focus when mouse enters
-            outerBorder.MouseEnter += (s, e) =>
+            // Parameters (if any)
+            if (paramSections.Count > 0)
             {
-                ((Border)s).Focus();
-                Keyboard.Focus((Border)s);
-            };
+                foreach (RenderedCommentSection section in paramSections)
+                {
+                    AddParameterLine(panel, section, fontSize, fontFamily, textBrush, headingBrush, lineHeight);
+                }
+                // Add spacing after params group if there are more sections
+                if (otherSections.Count > 0)
+                {
+                    panel.Children.Add(CreateSpacer(lineHeight * 0.2));
+                }
+            }
 
-            var summaryPanel = new StackPanel
+            // Other sections (Returns, Exceptions, Remarks, etc.)
+            for (int i = 0; i < otherSections.Count; i++)
             {
-                Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Top
-            };
+                AddSectionLine(panel, otherSections[i], fontSize, fontFamily, textBrush, headingBrush, lineHeight);
+            }
 
-            var summaryBlock = new TextBlock
+            return panel;
+        }
+
+        private static FrameworkElement CreateSpacer(double height)
+        {
+            return new Border { Height = height, Background = Brushes.Transparent };
+        }
+
+        private static void AddParameterLine(StackPanel panel, RenderedCommentSection section,
+            double fontSize, FontFamily fontFamily, Brush textBrush, Brush headingBrush, double lineHeight)
+        {
+            var content = GetSectionContent(section);
+
+            var textBlock = new TextBlock
             {
                 FontFamily = fontFamily,
                 FontSize = fontSize,
                 Foreground = textBrush,
                 TextWrapping = TextWrapping.NoWrap,
-                VerticalAlignment = VerticalAlignment.Top,
-                Padding = new Thickness(0),
-                Margin = new Thickness(0),
-                UseLayoutRounding = true,
-                SnapsToDevicePixels = true
+                Margin = new Thickness(0, 0, 0, lineHeight * 0.1) // Small spacing between params
             };
-            TextOptions.SetTextFormattingMode(summaryBlock, TextFormattingMode.Display);
-            TextOptions.SetTextRenderingMode(summaryBlock, TextRenderingMode.Auto);
 
-            RenderedCommentSection summary = renderedComment.Summary;
-            if (summary != null)
+            // Bullet + name (bold) + description
+            textBlock.Inlines.Add(new Run("• ") { Foreground = textBrush });
+            textBlock.Inlines.Add(new Run(section.Name ?? "")
             {
-                RenderSectionContent(summaryBlock, summary.ProseLines, textBrush, linkBrush, codeBrush, paramBrush);
-            }
+                Foreground = headingBrush,
+                FontWeight = FontWeights.SemiBold
+            });
+            textBlock.Inlines.Add(new Run(" — " + content) { Foreground = textBrush });
 
-            summaryPanel.Children.Add(summaryBlock);
-            outerBorder.Child = summaryPanel;
-            return outerBorder;
+            panel.Children.Add(textBlock);
         }
 
-        private void RenderSectionContent(TextBlock textBlock, IEnumerable<RenderedLine> lines,
-            Brush defaultBrush, Brush linkBrush, Brush codeBrush, Brush paramBrush)
+        private static void AddSectionLine(StackPanel panel, RenderedCommentSection section,
+            double fontSize, FontFamily fontFamily, Brush textBrush, Brush headingBrush, double lineHeight)
         {
-            var first = true;
-            foreach (RenderedLine line in lines)
+            var content = GetSectionContent(section);
+            var heading = GetSectionHeading(section);
+
+            var textBlock = new TextBlock
             {
-                if (line.IsBlank)
-                    continue;
+                FontFamily = fontFamily,
+                FontSize = fontSize,
+                Foreground = textBrush,
+                TextWrapping = TextWrapping.NoWrap,
+                Margin = new Thickness(0, 0, 0, lineHeight * 0.1) // Small spacing between sections
+            };
 
-                if (!first)
-                    textBlock.Inlines.Add(new Run(" ") { Foreground = defaultBrush });
-                first = false;
+            // Heading (bold) + content
+            textBlock.Inlines.Add(new Run(heading)
+            {
+                Foreground = headingBrush,
+                FontWeight = FontWeights.SemiBold
+            });
+            textBlock.Inlines.Add(new Run(" " + content) { Foreground = textBrush });
 
-                foreach (RenderedSegment segment in line.Segments)
-                {
-                    textBlock.Inlines.Add(CreateInline(segment, defaultBrush, linkBrush, codeBrush, paramBrush));
-                }
-            }
+            panel.Children.Add(textBlock);
         }
 
-        private Inline CreateInline(RenderedSegment segment, Brush defaultBrush, Brush linkBrush,
-            Brush codeBrush, Brush paramBrush)
+        private static string GetSectionHeading(RenderedCommentSection section)
         {
-            return segment.Type switch
+            return section.Type switch
             {
-                RenderedSegmentType.Link => new Run(segment.Text)
-                {
-                    Foreground = linkBrush,
-                    TextDecorations = TextDecorations.Underline,
-                    Cursor = Cursors.Hand
-                },
-                RenderedSegmentType.ParamRef or RenderedSegmentType.TypeParamRef =>
-                    new Run(segment.Text)
-                    {
-                        Foreground = paramBrush,
-                        FontStyle = FontStyles.Italic,
-                        FontWeight = FontWeights.Normal  // Normal weight, not bold
-                    },
-                RenderedSegmentType.Bold =>
-                    new Run(segment.Text)
-                    {
-                        FontWeight = FontWeights.Normal,  // Normal weight, not bold
-                        Foreground = defaultBrush
-                    },
-                RenderedSegmentType.Italic =>
-                    new Run(segment.Text)
-                    {
-                        FontStyle = FontStyles.Italic,
-                        Foreground = defaultBrush
-                    },
-                RenderedSegmentType.Code =>
-                    new Run(segment.Text)
-                    {
-                        Foreground = codeBrush,
-                        FontFamily = new FontFamily("Consolas"),
-                        Background = new SolidColorBrush(Color.FromArgb(20, 128, 128, 128))
-                    },
-                _ => new Run(segment.Text.TrimStart()) { Foreground = defaultBrush }
+                CommentSectionType.Returns => "Returns:",
+                CommentSectionType.Exception => $"Throws {section.Name}:",
+                CommentSectionType.Remarks => "Remarks:",
+                CommentSectionType.Example => "Example:",
+                CommentSectionType.Value => "Value:",
+                CommentSectionType.SeeAlso => "See also:",
+                _ => ""
             };
+        }
+
+        private static string GetSectionContent(RenderedCommentSection section)
+        {
+            return string.Join(" ", section.Lines
+                .Where(l => !l.IsBlank)
+                .SelectMany(l => l.Segments)
+                .Select(s => s.Text));
+        }
+
+        private static object CreateTooltip(XmlDocCommentBlock block)
+        {
+            // Show the raw XML content as tooltip
+            return block.XmlContent;
+        }
+
+        protected override bool UpdateAdornment(FrameworkElement adornment, XmlDocCommentBlock data)
+        {
+            // Always recreate to pick up font size changes
+            return false;
         }
 
         private void HideCommentRendering(int startLine)
         {
-            // Temporarily hide rendering for this specific comment
             _temporarilyHiddenComments.Add(startLine);
-
-            // Defer refresh to avoid layout exceptions
-#pragma warning disable VSTHRD001, VSTHRD110 // Intentional fire-and-forget for UI update
-            view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                if (!view.IsClosed)
-                {
-                    RefreshTags();
-                }
-            }), System.Windows.Threading.DispatcherPriority.Background);
-#pragma warning restore VSTHRD001, VSTHRD110
+            RefreshTags();
         }
 
         private void RefreshTags()

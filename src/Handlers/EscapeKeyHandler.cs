@@ -28,8 +28,8 @@ namespace CommentsVS.Handlers
         // Down Arrow: Hide rendering
         public bool ExecuteCommand(DownKeyCommandArgs args, CommandExecutionContext executionContext)
         {
-            // Only handle if rendered comments are enabled
-            if (!General.Instance.EnableRenderedComments)
+            // Only handle if in Full rendering mode
+            if (General.Instance.CommentRenderingMode != RenderingMode.Full)
             {
                 return false; // Let VS handle arrow key normally
             }

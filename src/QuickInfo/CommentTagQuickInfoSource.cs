@@ -39,7 +39,7 @@ namespace CommentsVS.QuickInfo
             IAsyncQuickInfoSession session,
             CancellationToken cancellationToken)
         {
-            if (!CommentTags.Instance.Enabled)
+            if (!General.Instance.EnableCommentTagHighlighting)
             {
                 return Task.FromResult<QuickInfoItem>(null);
             }

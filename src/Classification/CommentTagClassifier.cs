@@ -61,7 +61,7 @@ namespace CommentsVS.Classification
         {
             var result = new List<ClassificationSpan>();
 
-            if (!CommentTags.Instance.Enabled)
+            if (!General.Instance.EnableCommentTagHighlighting)
             {
                 return result;
             }

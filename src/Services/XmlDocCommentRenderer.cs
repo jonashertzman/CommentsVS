@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 
@@ -366,7 +367,7 @@ namespace CommentsVS.Services
                     RenderedSegment lastSegment = line.Segments[line.Segments.Count - 1];
                     if (!lastSegment.Text.EndsWith(" ", StringComparison.Ordinal))
                     {
-                        line.Segments.Add(new RenderedSegment(" "));
+                        line.Segments.Add(new RenderedSegment(""));
                     }
                 }
                 return;
@@ -517,11 +518,41 @@ namespace CommentsVS.Services
         {
             section.Lines.Add(new RenderedLine()); // Blank line before
 
-            var codeLines = element.InnerText.Split('\n');
+            // Preserve the original formatting of code blocks
+            var codeContent = element.InnerText;
+
+            // Split by newlines while preserving empty lines
+            var codeLines = codeContent.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+            // Find minimum indentation to normalize (skip empty lines)
+            var minIndent = int.MaxValue;
+            foreach (var codeLine in codeLines)
+            {
+                if (string.IsNullOrWhiteSpace(codeLine))
+                    continue;
+                var leadingSpaces = codeLine.Length - codeLine.TrimStart().Length;
+                if (leadingSpaces < minIndent)
+                    minIndent = leadingSpaces;
+            }
+            if (minIndent == int.MaxValue)
+                minIndent = 0;
+
             foreach (var codeLine in codeLines)
             {
                 var line = new RenderedLine();
-                line.Segments.Add(new RenderedSegment("    " + codeLine.TrimEnd('\r'), RenderedSegmentType.Code));
+                if (string.IsNullOrWhiteSpace(codeLine))
+                {
+                    // Preserve empty lines in code blocks
+                    line.Segments.Add(new RenderedSegment(" ", RenderedSegmentType.Code));
+                }
+                else
+                {
+                    // Remove common leading indentation but preserve relative indentation
+                    var normalizedLine = codeLine.Length > minIndent
+                        ? codeLine.Substring(minIndent)
+                        : codeLine.TrimStart();
+                    line.Segments.Add(new RenderedSegment("    " + normalizedLine.TrimEnd(), RenderedSegmentType.Code));
+                }
                 section.Lines.Add(line);
             }
 
@@ -671,7 +702,102 @@ namespace CommentsVS.Services
                 result += " ";
             }
 
-            return result;
+            return result.Trim();
+        }
+
+        /// <summary>
+        /// Extracts plain text summary from a comment block for compact collapsed display.
+        /// Strips all XML tags and returns just the text content from the summary element.
+        /// </summary>
+        public static string GetStrippedSummary(XmlDocCommentBlock block)
+        {
+            if (block == null || string.IsNullOrWhiteSpace(block.XmlContent))
+            {
+                return string.Empty;
+            }
+
+            var xmlContent = block.XmlContent;
+            var wrappedXml = $"<root>{xmlContent}</root>";
+
+            try
+            {
+                var doc = new System.Xml.XmlDocument();
+                doc.LoadXml(wrappedXml);
+
+                // Find the summary element
+                var summaryNode = doc.DocumentElement.SelectSingleNode("summary");
+                if (summaryNode == null)
+                {
+                    // No summary - try to extract any text content
+                    return CleanText(doc.DocumentElement.InnerText);
+                }
+
+                // Extract text from summary, preserving inline elements but removing tags
+                var summaryText = ExtractPlainText(summaryNode);
+                return CleanText(summaryText);
+            }
+            catch
+            {
+                // If XML parsing fails, strip tags manually
+                return StripXmlTags(xmlContent);
+            }
+        }
+
+        /// <summary>
+        /// Recursively extracts plain text from an XML node, preserving text content but removing tags.
+        /// </summary>
+        private static string ExtractPlainText(System.Xml.XmlNode node)
+        {
+            var sb = new StringBuilder();
+
+            foreach (System.Xml.XmlNode child in node.ChildNodes)
+            {
+                if (child is System.Xml.XmlText textNode)
+                {
+                    sb.Append(textNode.Value);
+                }
+                else if (child is System.Xml.XmlElement element)
+                {
+                    // For certain elements, add text representation
+                    var tagName = element.Name.ToLowerInvariant();
+                    switch (tagName)
+                    {
+                        case "paramref":
+                        case "typeparamref":
+                            sb.Append(element.GetAttribute("name"));
+                            break;
+                        case "see":
+                        case "seealso":
+                            var cref = element.GetAttribute("cref");
+                            sb.Append(GetTypeNameFromCref(cref));
+                            break;
+                        default:
+                            // Recursively extract text from child elements
+                            sb.Append(ExtractPlainText(element));
+                            break;
+                    }
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Fallback method to strip XML tags using regex when parsing fails.
+        /// </summary>
+        private static string StripXmlTags(string xml)
+        {
+            if (string.IsNullOrWhiteSpace(xml))
+            {
+                return string.Empty;
+            }
+
+            // Remove XML tags
+            var text = Regex.Replace(xml, @"<[^>]+>", " ");
+            // Clean up whitespace
+            text = Regex.Replace(text, @"\s+", " ");
+            return text.Trim();
         }
     }
 }
+

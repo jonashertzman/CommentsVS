@@ -14,8 +14,8 @@ namespace CommentsVS
     [InstalledProductRegistration(Vsix.Name, Vsix.Description, Vsix.Version)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [Guid(PackageGuids.CommentsVSString)]
-    [ProvideOptionPage(typeof(OptionsProvider.GeneralOptions), "CommentsVS", "General", 0, 0, true, SupportsProfiles = true)]
-    [ProvideProfile(typeof(OptionsProvider.GeneralOptions), "CommentsVS", "General", 0, 0, true)]
+    [ProvideOptionPage(typeof(OptionsProvider.GeneralOptions), Vsix.Name, "General", 0, 0, true, SupportsProfiles = true)]
+    [ProvideProfile(typeof(OptionsProvider.GeneralOptions), Vsix.Name, "General", 0, 0, true)]
     [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionExistsAndFullyLoaded_string, PackageAutoLoadFlags.BackgroundLoad)]
     public sealed class CommentsVSPackage : ToolkitPackage
     {

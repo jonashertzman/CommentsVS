@@ -5,6 +5,27 @@ using CommentsVS.Services;
 namespace CommentsVS.Options
 {
     /// <summary>
+    /// Rendering mode for XML documentation comments.
+    /// </summary>
+    public enum RenderingMode
+    {
+        /// <summary>
+        /// Show raw XML comments with standard Visual Studio syntax.
+        /// </summary>
+        Off = 0,
+
+        /// <summary>
+        /// Use outlining with stripped XML tags when collapsed.
+        /// </summary>
+        Compact = 1,
+
+        /// <summary>
+        /// Replace comments with rich formatted rendering optimized for reading.
+        /// </summary>
+        Full = 2
+    }
+
+    /// <summary>
     /// Options provider for the CommentsVS extension.
     /// </summary>
     internal partial class OptionsProvider
@@ -58,12 +79,19 @@ namespace CommentsVS.Options
 
         private const string _outliningCategory = "Comment Outlining";
 
-
         [Category(_outliningCategory)]
-        [DisplayName("Collapse Comments on File Open")]
-        [Description("When enabled, XML documentation comments will be automatically collapsed when opening a file.")]
+        [DisplayName("Collapsed by Default")]
+        [Description("When enabled, XML documentation comments will be automatically collapsed when opening a file. Only applies when Rendering Mode is Off or Compact.")]
         [DefaultValue(false)]
         public bool CollapseCommentsOnFileOpen { get; set; } = false;
+
+        private const string _tagsCategory = "Comment Tags";
+
+        [Category(_tagsCategory)]
+        [DisplayName("Enable Comment Tag Highlighting")]
+        [Description("When enabled, comment tags like TODO, HACK, NOTE, BUG, FIXME, UNDONE, and REVIEW will be highlighted. Colors can be customized in Tools > Options > Environment > Fonts and Colors.")]
+        [DefaultValue(true)]
+        public bool EnableCommentTagHighlighting { get; set; } = true;
 
         private const string _linksCategory = "Issue Links";
 
@@ -76,10 +104,11 @@ namespace CommentsVS.Options
         private const string _renderingCategory = "Comment Rendering";
 
         [Category(_renderingCategory)]
-        [DisplayName("Enable Rendered Comments")]
-        [Description("When enabled, XML documentation comments will be rendered without XML tags for easier reading. Toggle with Ctrl+M, Ctrl+R.")]
-        [DefaultValue(false)]
-        public bool EnableRenderedComments { get; set; } = false;
+        [DisplayName("Rendering Mode")]
+        [Description("Controls how XML documentation comments are displayed. Off: Raw XML syntax. Compact: Outlining with stripped tags. Full: Rich formatted rendering. Toggle with Ctrl+M, Ctrl+R.")]
+        [DefaultValue(RenderingMode.Off)]
+        [TypeConverter(typeof(EnumConverter))]
+        public RenderingMode CommentRenderingMode { get; set; } = RenderingMode.Off;
 
         /// <summary>
         /// Creates a CommentReflowEngine configured with the current options.
