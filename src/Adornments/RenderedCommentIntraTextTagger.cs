@@ -12,7 +12,6 @@ using CommentsVS.Options;
 using CommentsVS.Services;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.Text.Outlining;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Utilities;
 
@@ -44,9 +43,6 @@ namespace CommentsVS.Adornments
     [TextViewRole(PredefinedTextViewRoles.Document)]
     internal sealed class RenderedCommentIntraTextTaggerProvider : IViewTaggerProvider
     {
-        [Import]
-        internal IOutliningManagerService OutliningManagerService { get; set; }
-
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
         {
             if (textView == null || !(textView is IWpfTextView wpfTextView))
@@ -55,35 +51,23 @@ namespace CommentsVS.Adornments
             if (textView.TextBuffer != buffer)
                 return null;
 
-            IOutliningManager outliningManager = OutliningManagerService?.GetOutliningManager(textView);
-
             return wpfTextView.Properties.GetOrCreateSingletonProperty(
-                () => new RenderedCommentIntraTextTagger(wpfTextView, outliningManager)) as ITagger<T>;
+                () => new RenderedCommentIntraTextTagger(wpfTextView)) as ITagger<T>;
         }
     }
 
     internal sealed class RenderedCommentIntraTextTagger : IntraTextAdornmentTagger<XmlDocCommentBlock, FrameworkElement>
     {
         private readonly HashSet<int> _temporarilyHiddenComments = new HashSet<int>();
-        private readonly IOutliningManager _outliningManager;
         private int? _lastCaretLine;
 
-        public RenderedCommentIntraTextTagger(IWpfTextView view, IOutliningManager outliningManager) : base(view)
+        public RenderedCommentIntraTextTagger(IWpfTextView view) : base(view)
         {
-            _outliningManager = outliningManager;
-
             ToggleRenderedCommentsCommand.RenderedCommentsStateChanged += OnRenderedStateChanged;
             view.Caret.PositionChanged += OnCaretPositionChanged;
 
             // Listen for zoom level changes to refresh adornments with new font size
             view.ZoomLevelChanged += OnZoomLevelChanged;
-
-            // Listen for outlining expand/collapse to toggle raw source view
-            if (_outliningManager != null)
-            {
-                _outliningManager.RegionsExpanded += OnRegionsExpanded;
-                _outliningManager.RegionsCollapsed += OnRegionsCollapsed;
-            }
 
             // Hook into keyboard events at multiple levels
             view.VisualElement.PreviewKeyDown += OnViewKeyDown;
@@ -97,77 +81,6 @@ namespace CommentsVS.Adornments
 
             // Store tagger in view properties so command handler can find it
             view.Properties[typeof(RenderedCommentIntraTextTagger)] = this;
-        }
-
-        private void OnRegionsExpanded(object sender, RegionsExpandedEventArgs e)
-        {
-            RenderingMode renderingMode = General.Instance.CommentRenderingMode;
-            if (renderingMode != RenderingMode.Compact && renderingMode != RenderingMode.Full)
-            {
-                return;
-            }
-
-
-            // When outlining region is expanded, show raw source (hide rendered adornment)
-            ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
-            var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
-            if (commentStyle == null)
-            {
-                return;
-            }
-
-            var parser = new XmlDocCommentParser(commentStyle);
-            IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
-
-            foreach (ICollapsible region in e.ExpandedRegions)
-            {
-                SnapshotSpan regionSpan = region.Extent.GetSpan(snapshot);
-                foreach (XmlDocCommentBlock block in blocks)
-                {
-                    var blockSpan = new SnapshotSpan(snapshot, block.Span);
-                    if (regionSpan.IntersectsWith(blockSpan))
-                    {
-                        _temporarilyHiddenComments.Add(block.StartLine);
-                    }
-                }
-            }
-
-            DeferredRefreshTags();
-        }
-
-        private void OnRegionsCollapsed(object sender, RegionsCollapsedEventArgs e)
-        {
-            RenderingMode renderingMode = General.Instance.CommentRenderingMode;
-            if (renderingMode != RenderingMode.Compact && renderingMode != RenderingMode.Full)
-            {
-                return;
-            }
-
-            // When outlining region is collapsed, re-show rendered adornment
-            ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
-            var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
-            if (commentStyle == null)
-            {
-                return;
-            }
-
-            var parser = new XmlDocCommentParser(commentStyle);
-            IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
-
-            foreach (ICollapsed region in e.CollapsedRegions)
-            {
-                SnapshotSpan regionSpan = region.Extent.GetSpan(snapshot);
-                foreach (XmlDocCommentBlock block in blocks)
-                {
-                    var blockSpan = new SnapshotSpan(snapshot, block.Span);
-                    if (regionSpan.IntersectsWith(blockSpan))
-                    {
-                        _temporarilyHiddenComments.Remove(block.StartLine);
-                    }
-                }
-            }
-
-            DeferredRefreshTags();
         }
 
         private void DeferredRefreshTags()
@@ -280,7 +193,7 @@ namespace CommentsVS.Adornments
                         IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
 
                         // Find which comments should be re-enabled
-                        var blocksToReEnable = new List<XmlDocCommentBlock>();
+                        var shouldRefresh = false;
                         foreach (var hiddenLine in _temporarilyHiddenComments.ToList())
                         {
                             XmlDocCommentBlock block = blocks.FirstOrDefault(b => b.StartLine == hiddenLine);
@@ -289,21 +202,15 @@ namespace CommentsVS.Adornments
                                 // Check if caret is outside this comment's range
                                 if (currentLine < block.StartLine || currentLine > block.EndLine)
                                 {
-                                    blocksToReEnable.Add(block);
                                     _temporarilyHiddenComments.Remove(hiddenLine);
+                                    shouldRefresh = true;
                                 }
                             }
                         }
 
                         // Re-enable rendering for comments the caret moved away from
-                        if (blocksToReEnable.Count > 0)
+                        if (shouldRefresh)
                         {
-                            // Collapse any expanded outlining regions for these comments
-                            foreach (XmlDocCommentBlock block in blocksToReEnable)
-                            {
-                                CollapseOutliningRegion(block, snapshot);
-                            }
-
                             DeferredRefreshTags();
                         }
                     }
@@ -330,13 +237,6 @@ namespace CommentsVS.Adornments
             }), System.Windows.Threading.DispatcherPriority.Background);
 #pragma warning restore VSTHRD001, VSTHRD110
         }
-
-
-
-
-
-
-
 
         protected override IEnumerable<Tuple<SnapshotSpan, PositionAffinity?, XmlDocCommentBlock>> GetAdornmentData(
             NormalizedSnapshotSpanCollection spans)
@@ -936,9 +836,6 @@ namespace CommentsVS.Adornments
             ITextSnapshotLine startLine = snapshot.GetLineFromLineNumber(block.StartLine);
             var caretPosition = new SnapshotPoint(snapshot, startLine.Start.Position + block.Indentation.Length);
 
-            // Expand any collapsed outlining regions that contain this comment
-            ExpandOutliningRegion(block, snapshot);
-
             // Defer caret positioning to ensure the adornment is removed first
 #pragma warning disable VSTHRD001, VSTHRD110 // Intentional fire-and-forget for UI update
             view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
@@ -952,71 +849,6 @@ namespace CommentsVS.Adornments
 #pragma warning restore VSTHRD001, VSTHRD110
         }
 
-        /// <summary>
-        /// Expands any collapsed outlining regions that contain the comment block.
-        /// </summary>
-        private void ExpandOutliningRegion(XmlDocCommentBlock block, ITextSnapshot snapshot)
-        {
-            if (_outliningManager == null)
-            {
-                return;
-            }
-
-            try
-            {
-                var blockSpan = new SnapshotSpan(snapshot, block.Span);
-                IEnumerable<ICollapsed> collapsedRegions = _outliningManager.GetCollapsedRegions(blockSpan);
-
-                foreach (ICollapsed region in collapsedRegions)
-                {
-                    _outliningManager.Expand(region);
-                }
-            }
-            catch
-            {
-                // Ignore errors when expanding regions
-            }
-        }
-
-        /// <summary>
-        /// Collapses any expanded outlining regions that correspond to the comment block.
-        /// </summary>
-        private void CollapseOutliningRegion(XmlDocCommentBlock block, ITextSnapshot snapshot)
-        {
-            if (_outliningManager == null)
-            {
-                return;
-            }
-
-            try
-            {
-                var blockSpan = new SnapshotSpan(snapshot, block.Span);
-                IEnumerable<ICollapsible> allRegions = _outliningManager.GetAllRegions(blockSpan);
-
-                foreach (ICollapsible region in allRegions)
-                {
-                    // Only collapse regions that match the comment block (not parent regions like class/method)
-                    SnapshotSpan regionSpan = region.Extent.GetSpan(snapshot);
-                    
-                    // Check if this region approximately matches the comment block
-                    // (allowing for slight differences in span boundaries)
-                    var regionStartLine = snapshot.GetLineNumberFromPosition(regionSpan.Start);
-                    var regionEndLine = snapshot.GetLineNumberFromPosition(regionSpan.End);
-                    
-                    if (regionStartLine == block.StartLine && regionEndLine == block.EndLine)
-                    {
-                        if (!region.IsCollapsed)
-                        {
-                            _outliningManager.TryCollapse(region);
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Ignore errors when collapsing regions
-            }
-        }
 
         private void HideCommentRendering(int startLine)
         {

@@ -10,8 +10,6 @@ using CommentsVS.Options;
 using CommentsVS.Services;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.Text;
-using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.Text.Outlining;
 using Microsoft.VisualStudio.Utilities;
 
 namespace CommentsVS.QuickInfo
@@ -23,13 +21,10 @@ namespace CommentsVS.QuickInfo
     [Order(Before = "Default Quick Info Presenter")]
     internal sealed class CompactModeQuickInfoSourceProvider : IAsyncQuickInfoSourceProvider
     {
-        [Import]
-        internal IOutliningManagerService OutliningManagerService { get; set; }
-
         public IAsyncQuickInfoSource TryCreateQuickInfoSource(ITextBuffer textBuffer)
         {
             return textBuffer.Properties.GetOrCreateSingletonProperty(
-                () => new CompactModeQuickInfoSource(textBuffer, OutliningManagerService));
+                () => new CompactModeQuickInfoSource(textBuffer));
         }
     }
 
@@ -40,12 +35,10 @@ namespace CommentsVS.QuickInfo
     internal sealed class CompactModeQuickInfoSource : IAsyncQuickInfoSource
     {
         private readonly ITextBuffer _textBuffer;
-        private readonly IOutliningManagerService _outliningManagerService;
 
-        public CompactModeQuickInfoSource(ITextBuffer textBuffer, IOutliningManagerService outliningManagerService)
+        public CompactModeQuickInfoSource(ITextBuffer textBuffer)
         {
             _textBuffer = textBuffer;
-            _outliningManagerService = outliningManagerService;
         }
 
         public Task<QuickInfoItem> GetQuickInfoItemAsync(
