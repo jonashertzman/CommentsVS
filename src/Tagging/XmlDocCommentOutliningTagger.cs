@@ -68,6 +68,15 @@ namespace CommentsVS.Tagging
                 yield break;
             }
 
+            var renderingMode = General.Instance.CommentRenderingMode;
+
+            // In Compact/Full mode, IntraTextAdornment handles display entirely
+            // Don't create outlining regions to avoid background color artifacts
+            if (renderingMode == RenderingMode.Compact || renderingMode == RenderingMode.Full)
+            {
+                yield break;
+            }
+
             ITextSnapshot snapshot = spans[0].Snapshot;
             IContentType contentType = snapshot.ContentType;
             var commentStyle = LanguageCommentStyle.GetForContentType(contentType);
@@ -80,7 +89,6 @@ namespace CommentsVS.Tagging
             var parser = new XmlDocCommentParser(commentStyle);
             IReadOnlyList<XmlDocCommentBlock> commentBlocks = parser.FindAllCommentBlocks(snapshot);
 
-            var renderingMode = General.Instance.CommentRenderingMode;
             var collapseByDefault = General.Instance.CollapseCommentsOnFileOpen;
 
             foreach (XmlDocCommentBlock block in commentBlocks)
@@ -96,37 +104,14 @@ namespace CommentsVS.Tagging
                     continue;
                 }
 
-                string collapsedText;
-                bool isDefaultCollapsed;
-
-                if (renderingMode == RenderingMode.Compact || renderingMode == RenderingMode.Full)
-                {
-                    // In Compact/Full mode: use stripped summary as collapsed text
-                    // Regions are collapsed by default to show the rendered adornment
-                    collapsedText = XmlDocCommentRenderer.GetStrippedSummary(block);
-                    if (string.IsNullOrWhiteSpace(collapsedText))
-                    {
-                        collapsedText = "...";
-                    }
-                    // Truncate long summaries for the collapsed form
-                    if (collapsedText.Length > 80)
-                    {
-                        collapsedText = collapsedText.Substring(0, 77) + "...";
-                    }
-                    isDefaultCollapsed = true; // Always collapsed by default in rendered modes
-                }
-                else
-                {
-                    // Off mode: show first line as-is (with comment prefix)
-                    ITextSnapshotLine firstLine = snapshot.GetLineFromLineNumber(block.StartLine);
-                    collapsedText = firstLine.GetText().TrimStart();
-                    isDefaultCollapsed = collapseByDefault;
-                }
+                // Off mode: show first line as-is (with comment prefix)
+                ITextSnapshotLine firstLine = snapshot.GetLineFromLineNumber(block.StartLine);
+                var collapsedText = firstLine.GetText().TrimStart();
 
                 var tag = new OutliningRegionTag(
                     collapsedForm: collapsedText,
                     collapsedHintForm: block.XmlContent,
-                    isDefaultCollapsed: isDefaultCollapsed,
+                    isDefaultCollapsed: collapseByDefault,
                     isImplementation: false);
 
                 yield return new TagSpan<IOutliningRegionTag>(blockSpan, tag);

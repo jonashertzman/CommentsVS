@@ -107,6 +107,7 @@ namespace CommentsVS.Adornments
                 return;
             }
 
+
             // When outlining region is expanded, show raw source (hide rendered adornment)
             var snapshot = view.TextBuffer.CurrentSnapshot;
             var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
