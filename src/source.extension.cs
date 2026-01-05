@@ -9,12 +9,12 @@ namespace CommentsVS
     internal sealed partial class Vsix
     {
         public const string Id = "CommentsVS.38981599-e7f2-4db8-bf34-85b325aec2b6";
-        public const string Name = "Comments";
-        public const string Description = @"A modern commenting experience for Visual Studio with automatic XML documentation comment reformatting.";
+        public const string Name = "Comment Studio";
+        public const string Description = @"Enhance XML documentation comments with rich rendering, automatic reflow, collapsing, color-coded tags, and clickable issue links.";
         public const string Language = "en-US";
         public const string Version = "1.0.903";
         public const string Author = "Mads Kristensen";
-        public const string Tags = "";
+        public const string Tags = "docs, xml, comments, documentation";
         public const bool IsPreview = false;
     }
 }
