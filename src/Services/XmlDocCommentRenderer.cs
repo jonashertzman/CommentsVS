@@ -589,8 +589,9 @@ namespace CommentsVS.Services
                 section.ListContentStartIndex = section.Lines.Count;
             }
 
-            // Add blank line before list for visual separation (if there's preceding content)
-            if (section.Lines.Count > 0 && !section.Lines[section.Lines.Count - 1].IsBlank)
+            // Add blank line before list for consistent visual separation
+            // Only skip if the last line is already blank (to avoid double blanks)
+            if (section.Lines.Count == 0 || !section.Lines[section.Lines.Count - 1].IsBlank)
             {
                 section.Lines.Add(new RenderedLine());
             }
@@ -628,8 +629,7 @@ namespace CommentsVS.Services
                 }
             }
 
-            // Add blank line after list for visual separation
-            section.Lines.Add(new RenderedLine());
+            // Note: No trailing blank line - section spacing is handled by the tagger
         }
 
         private static void RenderBold(System.Xml.XmlElement element, RenderedCommentSection section)
