@@ -68,7 +68,7 @@ namespace CommentsVS.Tagging
                 yield break;
             }
 
-            var renderingMode = General.Instance.CommentRenderingMode;
+            RenderingMode renderingMode = General.Instance.CommentRenderingMode;
 
             // In Compact/Full mode, IntraTextAdornment handles display entirely
             // Don't create outlining regions to avoid background color artifacts

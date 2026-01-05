@@ -11,14 +11,27 @@ or get the [CI build][vsixgallery].
 
 --------------------------------------
 
-A Visual Studio extension that brings a modern commenting experience with automatic XML documentation comment reformatting and collapsing. Keep your documentation clean, readable, and consistently formatted.
+A Visual Studio extension that brings a modern commenting experience with automatic XML documentation comment reformatting, collapsing, and rich rendering. Keep your documentation clean, readable, and consistently formatted.
 
 ## Features
+
+### Comment Rendering Modes
+The extension offers three rendering modes for XML documentation comments, accessible via the **Edit > Comments** menu or the code editor context menu:
+
+| Mode | Description |
+|------|-------------|
+| **Off** | Raw XML syntax with standard Visual Studio coloring |
+| **Compact** | Outlining with stripped XML tags when collapsed |
+| **Full** | Rich formatted rendering optimized for reading |
+
+Use **Ctrl+M, Ctrl+R** to cycle through rendering modes. The active mode is indicated with a checkmark in the menu.
 
 ### Comment Outlining/Collapsing
 Collapse XML documentation comments to reduce visual clutter and focus on your code. Uses Visual Studio's built-in outlining regions for XML doc comments.
 
 Use **Ctrl+M, Ctrl+C** to toggle all XML doc comments in the current file between collapsed and expanded states. The extension remembers your preference, so newly opened files will match your last toggle state.
+
+You can also enable **Collapse XML Doc Comments by Default** from the **Edit > Comments** menu (or right-click context menu) to automatically collapse comments when opening files. This option is only available when the rendering mode is set to **Off**.
 
 ![Collapsed Comments](art/collapsed.png)
 
@@ -31,7 +44,14 @@ View XML documentation comments in a clean, rendered format without the XML synt
 - Proper list rendering for `<list>` elements
 - Gray text color that matches Visual Studio's comment styling (works with light and dark themes)
 
-Use **Ctrl+M, Ctrl+R** to toggle between the rendered view and the raw XML source. This is great for reading documentation without the visual clutter of XML tags.
+Use **Ctrl+M, Ctrl+R** to toggle between rendering modes. This is great for reading documentation without the visual clutter of XML tags.
+
+### Context Menu Access
+Right-click in any C#, VB, or C++ code editor to access the **Comments** submenu with quick access to:
+- **Collapse XML Doc Comments by Default** - Toggle automatic collapsing (only when rendering is Off)
+- **Rendering: Off / Compact / Full** - Switch between rendering modes
+
+The same menu is also available from the **Edit** menu.
 
 ### Automatic Comment Reflow
 Automatically reformat XML documentation comments to fit within a configurable line length (default: 120 characters). The extension intelligently wraps text while preserving XML structure.
@@ -101,7 +121,7 @@ Issue references like `#123` in comments automatically become clickable links to
 
 Configure the extension behavior via **Tools > Options > CommentsVS**.
 
-### Comment Reflow (General)
+### Comment Reflow
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Maximum Line Length | 120 | Maximum line length for reflowed comments |
@@ -111,16 +131,15 @@ Configure the extension behavior via **Tools > Options > CommentsVS**.
 | Use Compact Style for Short Summaries | On | Use single-line format for short summaries |
 | Preserve Blank Lines | On | Keep intentional blank lines in comments |
 
-### Comment Outlining (General)
+### Comment Outlining
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Collapse Comments on File Open | Off | Automatically collapse XML doc comments when opening files |
-| Enable Rendered Comments | Off | Show XML doc comments in a rendered, formatted view |
+| Collapsed by Default | Off | Automatically collapse XML doc comments when opening files (only applies when Rendering Mode is Off or Compact) |
 
-### Issue Links (General)
+### Comment Rendering
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Enable Issue Links | On | Make #123 references clickable links to issues |
+| Rendering Mode | Off | Controls how XML doc comments are displayed: Off (raw XML), Compact (outlining with stripped tags), or Full (rich formatted rendering) |
 
 ### Comment Tags
 | Setting | Default | Description |
@@ -128,6 +147,11 @@ Configure the extension behavior via **Tools > Options > CommentsVS**.
 | Enable Comment Tag Highlighting | On | Enable/disable tag highlighting |
 
 Tag colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment Tag - [TAG]" entries.
+
+### Issue Links
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Enable Issue Links | On | Make #123 references clickable links to issues |
 
 ## Getting Started
 

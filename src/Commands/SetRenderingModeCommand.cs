@@ -80,7 +80,7 @@ namespace CommentsVS.Commands
                 await ToggleRenderedCommentsCommand.ExpandAndRecollapseXmlDocCommentsAsync();
             }
 
-            string modeName = mode switch
+            var modeName = mode switch
             {
                 RenderingMode.Off => "Off",
                 RenderingMode.Compact => "Compact",

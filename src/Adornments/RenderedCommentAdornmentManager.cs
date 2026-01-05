@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Media.TextFormatting;
 using CommentsVS.Commands;
 using CommentsVS.Options;
 using CommentsVS.Services;
@@ -44,8 +45,8 @@ internal sealed class RenderedCommentAdornmentManagerProvider : IWpfTextViewCrea
 
     public void TextViewCreated(IWpfTextView textView)
     {
-        // Create the adornment manager for this view
-        var formatMap = EditorFormatMapService?.GetEditorFormatMap(textView);
+            // Create the adornment manager for this view
+            IEditorFormatMap formatMap = EditorFormatMapService?.GetEditorFormatMap(textView);
         textView.Properties.GetOrCreateSingletonProperty(
             () => new RenderedCommentAdornmentManager(
                 textView, 
@@ -138,7 +139,7 @@ internal sealed class RenderedCommentAdornmentManagerProvider : IWpfTextViewCrea
             if (_editorFormatMap != null)
             {
                 // Try TextView Background first (this is usually the correct one)
-                var textViewProps = _editorFormatMap.GetProperties("TextView Background");
+                ResourceDictionary textViewProps = _editorFormatMap.GetProperties("TextView Background");
                 if (textViewProps != null && textViewProps.Contains("BackgroundColor"))
                 {
                     var bgColor = (Color)textViewProps["BackgroundColor"];
@@ -149,7 +150,7 @@ internal sealed class RenderedCommentAdornmentManagerProvider : IWpfTextViewCrea
                 }
 
                 // Try Plain Text background
-                var plainTextProps = _editorFormatMap.GetProperties("Plain Text");
+                ResourceDictionary plainTextProps = _editorFormatMap.GetProperties("Plain Text");
                 if (plainTextProps != null && plainTextProps.Contains("BackgroundColor"))
                 {
                     var bgColor = (Color)plainTextProps["BackgroundColor"];
@@ -161,7 +162,7 @@ internal sealed class RenderedCommentAdornmentManagerProvider : IWpfTextViewCrea
             }
 
             // Fallback: detect dark vs light theme based on foreground color
-            var defaultProps = _textView.FormattedLineSource?.DefaultTextProperties;
+            TextRunProperties defaultProps = _textView.FormattedLineSource?.DefaultTextProperties;
             var foreground = defaultProps?.ForegroundBrush as SolidColorBrush;
             if (foreground != null)
             {

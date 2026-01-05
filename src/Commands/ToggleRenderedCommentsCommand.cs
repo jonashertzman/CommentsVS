@@ -1,6 +1,7 @@
 using System.Linq;
 using CommentsVS.Options;
 using Microsoft.VisualStudio.ComponentModelHost;
+using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Outlining;
 
@@ -20,8 +21,8 @@ namespace CommentsVS.Commands
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
             // Cycle through modes: Off -> Compact -> Full -> Off
-            var currentMode = General.Instance.CommentRenderingMode;
-            var nextMode = currentMode switch
+            RenderingMode currentMode = General.Instance.CommentRenderingMode;
+            RenderingMode nextMode = currentMode switch
             {
                 RenderingMode.Off => RenderingMode.Compact,
                 RenderingMode.Compact => RenderingMode.Full,
@@ -78,16 +79,16 @@ namespace CommentsVS.Commands
                 return;
             }
 
-            var snapshot = textView.TextSnapshot;
+            ITextSnapshot snapshot = textView.TextSnapshot;
             var fullSpan = new Microsoft.VisualStudio.Text.SnapshotSpan(snapshot, 0, snapshot.Length);
-            
+
             // Get all collapsed XML doc comment regions
             var collapsedCommentRegions = outliningManager.GetCollapsedRegions(fullSpan, false)
                 .Where(r => IsXmlDocCommentRegion(r, snapshot))
                 .ToList();
 
             // Expand all collapsed XML doc comment regions
-            foreach (var region in collapsedCommentRegions)
+            foreach (ICollapsed region in collapsedCommentRegions)
             {
                 outliningManager.Expand(region);
             }
@@ -108,7 +109,7 @@ namespace CommentsVS.Commands
                     .ToList();
 
                 // Collapse them again with the new collapsed text
-                foreach (var region in allCommentRegions)
+                foreach (ICollapsible region in allCommentRegions)
                 {
                     outliningManager.TryCollapse(region);
                 }
@@ -122,8 +123,8 @@ namespace CommentsVS.Commands
         {
             try
             {
-                var extent = region.Extent.GetSpan(snapshot);
-                var startLine = extent.Start.GetContainingLine();
+                SnapshotSpan extent = region.Extent.GetSpan(snapshot);
+                ITextSnapshotLine startLine = extent.Start.GetContainingLine();
                 var text = startLine.GetText().TrimStart();
 
                 // Check if this looks like an XML doc comment

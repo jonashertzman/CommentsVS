@@ -46,7 +46,7 @@ namespace CommentsVS.Adornments
         {
             lock (invalidatedSpans)
             {
-                bool wasEmpty = invalidatedSpans.Count == 0;
+                var wasEmpty = invalidatedSpans.Count == 0;
                 invalidatedSpans.AddRange(spans);
 
                 if (wasEmpty && this.invalidatedSpans.Count > 0)
@@ -63,7 +63,7 @@ namespace CommentsVS.Adornments
                 snapshot = view.TextBuffer.CurrentSnapshot;
 
                 var translatedAdornmentCache = new Dictionary<SnapshotSpan, TAdornment>();
-                foreach (var kvp in adornmentCache)
+                foreach (KeyValuePair<SnapshotSpan, TAdornment> kvp in adornmentCache)
                     translatedAdornmentCache[kvp.Key.TranslateTo(snapshot, SpanTrackingMode.EdgeExclusive)] = kvp.Value;
 
                 adornmentCache = translatedAdornmentCache;
@@ -79,8 +79,8 @@ namespace CommentsVS.Adornments
             if (translatedSpans.Count == 0)
                 return;
 
-            var start = translatedSpans.Select(span => span.Start).Min();
-            var end = translatedSpans.Select(span => span.End).Max();
+            SnapshotPoint start = translatedSpans.Select(span => span.Start).Min();
+            SnapshotPoint end = translatedSpans.Select(span => span.End).Max();
 
             RaiseTagsChanged(new SnapshotSpan(start, end));
         }
@@ -98,7 +98,7 @@ namespace CommentsVS.Adornments
                             where !kvp.Key.TranslateTo(visibleSpan.Snapshot, SpanTrackingMode.EdgeExclusive).IntersectsWith(visibleSpan)
                             select kvp.Key).ToList();
 
-            foreach (var span in toRemove)
+            foreach (SnapshotSpan span in toRemove)
                 adornmentCache.Remove(span);
         }
 
@@ -111,7 +111,7 @@ namespace CommentsVS.Adornments
             var translatedSpans = new NormalizedSnapshotSpanCollection(
                 spans.Select(span => span.TranslateTo(snapshot, SpanTrackingMode.EdgeExclusive)));
 
-            foreach (var tagSpan in GetAdornmentTagsOnSnapshot(translatedSpans))
+            foreach (TagSpan<IntraTextAdornmentTag> tagSpan in GetAdornmentTagsOnSnapshot(translatedSpans))
             {
                 SnapshotSpan span = tagSpan.Span.TranslateTo(requestedSnapshot, SpanTrackingMode.EdgeExclusive);
                 var tag = new IntraTextAdornmentTag(tagSpan.Tag.Adornment, tagSpan.Tag.RemovalCallback, tagSpan.Tag.Affinity);
@@ -127,11 +127,11 @@ namespace CommentsVS.Adornments
             ITextSnapshot snapshot = spans[0].Snapshot;
 
             var toRemove = new HashSet<SnapshotSpan>();
-            foreach (var ar in adornmentCache)
+            foreach (KeyValuePair<SnapshotSpan, TAdornment> ar in adornmentCache)
                 if (spans.IntersectsWith(new NormalizedSnapshotSpanCollection(ar.Key)))
                     toRemove.Add(ar.Key);
 
-            foreach (var spanDataPair in GetAdornmentData(spans).Distinct(new Comparer()))
+            foreach (Tuple<SnapshotSpan, PositionAffinity?, TData> spanDataPair in GetAdornmentData(spans).Distinct(new Comparer()))
             {
                 SnapshotSpan snapshotSpan = spanDataPair.Item1;
                 PositionAffinity? affinity = spanDataPair.Item2;
@@ -155,7 +155,7 @@ namespace CommentsVS.Adornments
                 yield return new TagSpan<IntraTextAdornmentTag>(snapshotSpan, new IntraTextAdornmentTag(adornment, null, affinity));
             }
 
-            foreach (var snapshotSpan in toRemove)
+            foreach (SnapshotSpan snapshotSpan in toRemove)
                 adornmentCache.Remove(snapshotSpan);
         }
 

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using CommentsVS.Options;
 using Microsoft.VisualStudio.ComponentModelHost;
@@ -23,14 +22,14 @@ namespace CommentsVS.Commands
 
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
-            bool newValue = !General.Instance.CollapseCommentsOnFileOpen;
+            var newValue = !General.Instance.CollapseCommentsOnFileOpen;
             General.Instance.CollapseCommentsOnFileOpen = newValue;
             await General.Instance.SaveAsync();
 
             // Apply to the active document
             await ApplyCollapseStateToActiveDocumentAsync(newValue);
 
-            string state = newValue ? "enabled" : "disabled";
+            var state = newValue ? "enabled" : "disabled";
             await VS.StatusBar.ShowMessageAsync($"Collapse XML doc comments by default: {state}");
         }
 
@@ -64,7 +63,7 @@ namespace CommentsVS.Commands
 
             ITextSnapshot snapshot = textView.TextSnapshot;
             var fullSpan = new SnapshotSpan(snapshot, 0, snapshot.Length);
-            List<ICollapsible> commentRegions = outliningManager
+            var commentRegions = outliningManager
                 .GetAllRegions(fullSpan)
                 .Where(r => IsXmlDocCommentRegion(r, snapshot))
                 .ToList();
@@ -91,7 +90,7 @@ namespace CommentsVS.Commands
         private static bool IsXmlDocCommentRegion(ICollapsible region, ITextSnapshot snapshot)
         {
             SnapshotSpan span = region.Extent.GetSpan(snapshot);
-            string text = span.GetText().TrimStart();
+            var text = span.GetText().TrimStart();
 
             return text.StartsWith("///") || text.StartsWith("'''");
         }

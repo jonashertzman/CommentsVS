@@ -756,7 +756,7 @@ namespace CommentsVS.Services
                 doc.LoadXml(wrappedXml);
 
                 // Find the summary element
-                var summaryNode = doc.DocumentElement.SelectSingleNode("summary");
+                XmlNode summaryNode = doc.DocumentElement.SelectSingleNode("summary");
                 if (summaryNode == null)
                 {
                     // No summary - try to extract any text content

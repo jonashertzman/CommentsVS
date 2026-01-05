@@ -53,7 +53,7 @@ namespace CommentsVS.QuickInfo
             CancellationToken cancellationToken)
         {
             // Show tooltip in Compact mode only (Full mode shows all details inline)
-            var renderingMode = General.Instance.CommentRenderingMode;
+            RenderingMode renderingMode = General.Instance.CommentRenderingMode;
             if (renderingMode != RenderingMode.Compact)
             {
                 return Task.FromResult<QuickInfoItem>(null);
@@ -91,14 +91,14 @@ namespace CommentsVS.QuickInfo
             }
 
             // Create the tooltip content
-            var tooltipContent = CreateFullRenderingTooltip(renderedComment);
+            FrameworkElement tooltipContent = CreateFullRenderingTooltip(renderedComment);
             
             if (tooltipContent == null)
             {
                 return Task.FromResult<QuickInfoItem>(null);
             }
 
-            var trackingSpan = snapshot.CreateTrackingSpan(block.Span, SpanTrackingMode.EdgeInclusive);
+            ITrackingSpan trackingSpan = snapshot.CreateTrackingSpan(block.Span, SpanTrackingMode.EdgeInclusive);
             return Task.FromResult(new QuickInfoItem(trackingSpan, tooltipContent));
         }
 
@@ -126,7 +126,7 @@ namespace CommentsVS.QuickInfo
             var paramBrush = new SolidColorBrush(Color.FromRgb(150, 150, 150));
 
             var isFirst = true;
-            foreach (var section in renderedComment.Sections)
+            foreach (RenderedCommentSection section in renderedComment.Sections)
             {
                 if (section.IsEmpty)
                 {
@@ -154,7 +154,7 @@ namespace CommentsVS.QuickInfo
                 }
 
                 // Add section content
-                foreach (var line in section.Lines)
+                foreach (RenderedLine line in section.Lines)
                 {
                     if (line.IsBlank)
                     {
@@ -169,7 +169,7 @@ namespace CommentsVS.QuickInfo
                         Margin = new Thickness(0, 0, 0, 2)
                     };
 
-                    foreach (var segment in line.Segments)
+                    foreach (RenderedSegment segment in line.Segments)
                     {
                         textBlock.Inlines.Add(CreateInline(segment, textBrush, linkBrush, codeBrush, paramBrush));
                     }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
 using CommentsVS.Adornments;
@@ -48,7 +49,7 @@ namespace CommentsVS.Handlers
 
             // Get current caret line
             var caretLine = wpfTextView.Caret.Position.BufferPosition.GetContainingLine().LineNumber;
-            var snapshot = args.SubjectBuffer.CurrentSnapshot;
+            ITextSnapshot snapshot = args.SubjectBuffer.CurrentSnapshot;
             var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
 
             if (commentStyle == null)
@@ -57,10 +58,10 @@ namespace CommentsVS.Handlers
             }
 
             var parser = new XmlDocCommentParser(commentStyle);
-            var blocks = parser.FindAllCommentBlocks(snapshot);
+            IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
 
             // Find if caret is within any rendered comment
-            foreach (var block in blocks)
+            foreach (XmlDocCommentBlock block in blocks)
             {
                 if (caretLine >= block.StartLine && caretLine <= block.EndLine)
                 {

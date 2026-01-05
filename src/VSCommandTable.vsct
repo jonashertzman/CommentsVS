@@ -14,6 +14,7 @@
         <Strings>
           <ButtonText>Comments</ButtonText>
           <CommandName>Comments</CommandName>
+          <CanonicalName>.CommentsVS.Comments</CanonicalName>
         </Strings>
       </Menu>
     </Menus>
@@ -69,7 +70,7 @@
         <Parent guid="CommentsVS" id="CommentsToggleGroup"/>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
-          <ButtonText>Collapse XML Doc Comments by Default</ButtonText>
+          <ButtonText>Collapse XML Doc Comments by default</ButtonText>
           <CanonicalName>.CommentsVS.ToggleCollapseByDefault</CanonicalName>
           <LocCanonicalName>.CommentsVS.ToggleCollapseByDefault</LocCanonicalName>
         </Strings>
@@ -112,8 +113,8 @@
       <Parent guid="CommentsVS" id="ToolbarGroup"/>
     </CommandPlacement>
     <!-- Place the submenu group on Edit menu -->
-    <CommandPlacement guid="CommentsVS" id="CommentsSubMenuGroup" priority="0x0900">
-      <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_EDIT"/>
+    <CommandPlacement guid="CommentsVS" id="CommentsSubMenu" priority="0x9999">
+      <Parent guid="VSEditor" id="Edit.LanguageInfoGroup"/>
     </CommandPlacement>
   </CommandPlacements>
 

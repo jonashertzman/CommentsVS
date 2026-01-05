@@ -55,7 +55,7 @@ namespace CommentsVS.Adornments
             if (textView.TextBuffer != buffer)
                 return null;
 
-            var outliningManager = OutliningManagerService?.GetOutliningManager(textView);
+            IOutliningManager outliningManager = OutliningManagerService?.GetOutliningManager(textView);
 
             return wpfTextView.Properties.GetOrCreateSingletonProperty(
                 () => new RenderedCommentIntraTextTagger(wpfTextView, outliningManager)) as ITagger<T>;
@@ -101,7 +101,7 @@ namespace CommentsVS.Adornments
 
         private void OnRegionsExpanded(object sender, RegionsExpandedEventArgs e)
         {
-            var renderingMode = General.Instance.CommentRenderingMode;
+            RenderingMode renderingMode = General.Instance.CommentRenderingMode;
             if (renderingMode != RenderingMode.Compact && renderingMode != RenderingMode.Full)
             {
                 return;
@@ -109,7 +109,7 @@ namespace CommentsVS.Adornments
 
 
             // When outlining region is expanded, show raw source (hide rendered adornment)
-            var snapshot = view.TextBuffer.CurrentSnapshot;
+            ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
             var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
             if (commentStyle == null)
             {
@@ -117,12 +117,12 @@ namespace CommentsVS.Adornments
             }
 
             var parser = new XmlDocCommentParser(commentStyle);
-            var blocks = parser.FindAllCommentBlocks(snapshot);
+            IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
 
-            foreach (var region in e.ExpandedRegions)
+            foreach (ICollapsible region in e.ExpandedRegions)
             {
-                var regionSpan = region.Extent.GetSpan(snapshot);
-                foreach (var block in blocks)
+                SnapshotSpan regionSpan = region.Extent.GetSpan(snapshot);
+                foreach (XmlDocCommentBlock block in blocks)
                 {
                     var blockSpan = new SnapshotSpan(snapshot, block.Span);
                     if (regionSpan.IntersectsWith(blockSpan))
@@ -137,14 +137,14 @@ namespace CommentsVS.Adornments
 
         private void OnRegionsCollapsed(object sender, RegionsCollapsedEventArgs e)
         {
-            var renderingMode = General.Instance.CommentRenderingMode;
+            RenderingMode renderingMode = General.Instance.CommentRenderingMode;
             if (renderingMode != RenderingMode.Compact && renderingMode != RenderingMode.Full)
             {
                 return;
             }
 
             // When outlining region is collapsed, re-show rendered adornment
-            var snapshot = view.TextBuffer.CurrentSnapshot;
+            ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
             var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
             if (commentStyle == null)
             {
@@ -152,12 +152,12 @@ namespace CommentsVS.Adornments
             }
 
             var parser = new XmlDocCommentParser(commentStyle);
-            var blocks = parser.FindAllCommentBlocks(snapshot);
+            IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
 
-            foreach (var region in e.CollapsedRegions)
+            foreach (ICollapsed region in e.CollapsedRegions)
             {
-                var regionSpan = region.Extent.GetSpan(snapshot);
-                foreach (var block in blocks)
+                SnapshotSpan regionSpan = region.Extent.GetSpan(snapshot);
+                foreach (XmlDocCommentBlock block in blocks)
                 {
                     var blockSpan = new SnapshotSpan(snapshot, block.Span);
                     if (regionSpan.IntersectsWith(blockSpan))
@@ -211,15 +211,15 @@ namespace CommentsVS.Adornments
                 return;
 
             var caretLine = view.Caret.Position.BufferPosition.GetContainingLine().LineNumber;
-            var snapshot = view.TextBuffer.CurrentSnapshot;
+            ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
             var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
 
             if (commentStyle != null)
             {
                 var parser = new XmlDocCommentParser(commentStyle);
-                var blocks = parser.FindAllCommentBlocks(snapshot);
+                IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
 
-                foreach (var block in blocks)
+                foreach (XmlDocCommentBlock block in blocks)
                 {
                     if (caretLine >= block.StartLine && caretLine <= block.EndLine)
                     {
@@ -236,16 +236,16 @@ namespace CommentsVS.Adornments
             {
                 // Check if caret is on a rendered comment line
                 var caretLine = view.Caret.Position.BufferPosition.GetContainingLine().LineNumber;
-                var snapshot = view.TextBuffer.CurrentSnapshot;
+                ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
                 var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
 
                 if (commentStyle != null)
                 {
                     var parser = new XmlDocCommentParser(commentStyle);
-                    var blocks = parser.FindAllCommentBlocks(snapshot);
+                    IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
 
                     // Find if caret is within any rendered comment
-                    foreach (var block in blocks)
+                    foreach (XmlDocCommentBlock block in blocks)
                     {
                         if (caretLine >= block.StartLine && caretLine <= block.EndLine)
                         {
@@ -272,18 +272,18 @@ namespace CommentsVS.Adornments
                 // Check if we moved away from any temporarily hidden comments
                 if (_temporarilyHiddenComments.Count > 0)
                 {
-                    var snapshot = view.TextBuffer.CurrentSnapshot;
+                    ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
                     var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
                     if (commentStyle != null)
                     {
                         var parser = new XmlDocCommentParser(commentStyle);
-                        var blocks = parser.FindAllCommentBlocks(snapshot);
+                        IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
 
                         // Find which comments should be re-enabled
                         var blocksToReEnable = new List<XmlDocCommentBlock>();
                         foreach (var hiddenLine in _temporarilyHiddenComments.ToList())
                         {
-                            var block = blocks.FirstOrDefault(b => b.StartLine == hiddenLine);
+                            XmlDocCommentBlock block = blocks.FirstOrDefault(b => b.StartLine == hiddenLine);
                             if (block != null)
                             {
                                 // Check if caret is outside this comment's range
@@ -299,7 +299,7 @@ namespace CommentsVS.Adornments
                         if (blocksToReEnable.Count > 0)
                         {
                             // Collapse any expanded outlining regions for these comments
-                            foreach (var block in blocksToReEnable)
+                            foreach (XmlDocCommentBlock block in blocksToReEnable)
                             {
                                 CollapseOutliningRegion(block, snapshot);
                             }
@@ -324,7 +324,7 @@ namespace CommentsVS.Adornments
             {
                 if (!view.IsClosed)
                 {
-                    var snapshot = view.TextBuffer.CurrentSnapshot;
+                    ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
                     RaiseTagsChanged(new SnapshotSpan(snapshot, 0, snapshot.Length));
                 }
             }), System.Windows.Threading.DispatcherPriority.Background);
@@ -341,7 +341,7 @@ namespace CommentsVS.Adornments
         protected override IEnumerable<Tuple<SnapshotSpan, PositionAffinity?, XmlDocCommentBlock>> GetAdornmentData(
             NormalizedSnapshotSpanCollection spans)
         {
-            var renderingMode = General.Instance.CommentRenderingMode;
+            RenderingMode renderingMode = General.Instance.CommentRenderingMode;
 
             // Only provide adornments in Compact or Full mode
             if (renderingMode != RenderingMode.Compact && renderingMode != RenderingMode.Full)
@@ -387,12 +387,12 @@ namespace CommentsVS.Adornments
 
         protected override FrameworkElement CreateAdornment(XmlDocCommentBlock block, SnapshotSpan span)
         {
-            var renderingMode = General.Instance.CommentRenderingMode;
+            RenderingMode renderingMode = General.Instance.CommentRenderingMode;
 
             // Get editor font settings - use 1pt smaller than editor font
             var editorFontSize = view.FormattedLineSource?.DefaultTextProperties?.FontRenderingEmSize ?? 13.0;
             var fontSize = Math.Max(editorFontSize - 1.0, 8.0); // At least 8pt
-            var fontFamily = view.FormattedLineSource?.DefaultTextProperties?.Typeface?.FontFamily
+            FontFamily fontFamily = view.FormattedLineSource?.DefaultTextProperties?.Typeface?.FontFamily
                 ?? new FontFamily("Consolas");
 
             // Gray color for subtle appearance
@@ -478,8 +478,8 @@ namespace CommentsVS.Adornments
             RenderedComment rendered = XmlDocCommentRenderer.Render(block);
 
             // If only summary with no list content, use compact display
-            var summarySection = rendered.Summary;
-            bool summaryHasListContent = summarySection != null && summarySection.ListContentStartIndex >= 0;
+            RenderedCommentSection summarySection = rendered.Summary;
+            var summaryHasListContent = summarySection != null && summarySection.ListContentStartIndex >= 0;
             
             if (!rendered.HasAdditionalSections && !summaryHasListContent)
             {
@@ -527,7 +527,7 @@ namespace CommentsVS.Adornments
             // Type parameters (if any)
             if (typeParamSections.Count > 0)
             {
-                for (int i = 0; i < typeParamSections.Count; i++)
+                for (var i = 0; i < typeParamSections.Count; i++)
                 {
                     AddParameterLine(panel, typeParamSections[i], fontSize, fontFamily, textBrush, headingBrush, 
                         lineHeight, listIndent, itemSpacing, isLast: i == typeParamSections.Count - 1);
@@ -542,7 +542,7 @@ namespace CommentsVS.Adornments
             // Parameters (if any)
             if (paramSections.Count > 0)
             {
-                for (int i = 0; i < paramSections.Count; i++)
+                for (var i = 0; i < paramSections.Count; i++)
                 {
                     AddParameterLine(panel, paramSections[i], fontSize, fontFamily, textBrush, headingBrush, 
                         lineHeight, listIndent, itemSpacing, isLast: i == paramSections.Count - 1);
@@ -555,7 +555,7 @@ namespace CommentsVS.Adornments
             }
 
             // Other sections (Returns, Exceptions, Remarks, etc.)
-            for (int i = 0; i < otherSections.Count; i++)
+            for (var i = 0; i < otherSections.Count; i++)
             {
                 AddSectionLine(panel, otherSections[i], fontSize, fontFamily, textBrush, headingBrush, 
                     lineHeight, listIndent, itemSpacing);
@@ -621,8 +621,8 @@ namespace CommentsVS.Adornments
             double fontSize, FontFamily fontFamily, Brush textBrush, Brush headingBrush, 
             double lineHeight, double listIndent, double itemSpacing, bool isSummary)
         {
-            bool isFirstLine = true;
-            bool previousWasListItem = false;
+            var isFirstLine = true;
+            var previousWasListItem = false;
             
             foreach (RenderedLine line in section.Lines)
             {
@@ -640,13 +640,13 @@ namespace CommentsVS.Adornments
                 var lineText = string.Join("", line.Segments.Select(s => s.Text));
                 
                 // Check if this is a list item (starts with bullet or number)
-                bool isListItem = lineText.TrimStart().StartsWith("•") || 
+                var isListItem = lineText.TrimStart().StartsWith("•") || 
                                   (lineText.TrimStart().Length > 0 && char.IsDigit(lineText.TrimStart()[0]) && lineText.Contains(". "));
 
                 // Word wrap the line at 100 chars
-                var wrappedLines = WordWrap(lineText, 100);
+                List<string> wrappedLines = WordWrap(lineText, 100);
 
-                for (int i = 0; i < wrappedLines.Count; i++)
+                for (var i = 0; i < wrappedLines.Count; i++)
                 {
                     var textBlock = new TextBlock
                     {
@@ -712,9 +712,9 @@ namespace CommentsVS.Adornments
             var fullText = prefix + content;
 
             // Word wrap at 100 chars
-            var wrappedLines = WordWrap(fullText, 100);
+            List<string> wrappedLines = WordWrap(fullText, 100);
             
-            for (int i = 0; i < wrappedLines.Count; i++)
+            for (var i = 0; i < wrappedLines.Count; i++)
             {
                 var textBlock = new TextBlock
                 {
@@ -768,7 +768,7 @@ namespace CommentsVS.Adornments
             var heading = GetSectionHeading(section);
 
             // Check if section contains code blocks (needs special handling to preserve formatting)
-            bool hasCodeBlock = section.Lines.Any(l => l.Segments.Any(s => s.Type == RenderedSegmentType.Code));
+            var hasCodeBlock = section.Lines.Any(l => l.Segments.Any(s => s.Type == RenderedSegmentType.Code));
 
             if (hasCodeBlock)
             {
@@ -807,7 +807,7 @@ namespace CommentsVS.Adornments
                     };
 
                     // Check if this line is code
-                    bool isCodeLine = line.Segments.Any(s => s.Type == RenderedSegmentType.Code);
+                    var isCodeLine = line.Segments.Any(s => s.Type == RenderedSegmentType.Code);
                     if (isCodeLine)
                     {
                         // Use monospace font for code
@@ -830,9 +830,9 @@ namespace CommentsVS.Adornments
                 var fullText = heading + " " + content;
 
                 // Word wrap at 100 chars
-                var wrappedLines = WordWrap(fullText, 100);
+                List<string> wrappedLines = WordWrap(fullText, 100);
 
-                for (int i = 0; i < wrappedLines.Count; i++)
+                for (var i = 0; i < wrappedLines.Count; i++)
                 {
                     var textBlock = new TextBlock
                     {
@@ -932,8 +932,8 @@ namespace CommentsVS.Adornments
             HideCommentRendering(block.StartLine);
 
             // Position the caret at the start of the comment block
-            var snapshot = view.TextBuffer.CurrentSnapshot;
-            var startLine = snapshot.GetLineFromLineNumber(block.StartLine);
+            ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
+            ITextSnapshotLine startLine = snapshot.GetLineFromLineNumber(block.StartLine);
             var caretPosition = new SnapshotPoint(snapshot, startLine.Start.Position + block.Indentation.Length);
 
             // Expand any collapsed outlining regions that contain this comment
@@ -965,9 +965,9 @@ namespace CommentsVS.Adornments
             try
             {
                 var blockSpan = new SnapshotSpan(snapshot, block.Span);
-                var collapsedRegions = _outliningManager.GetCollapsedRegions(blockSpan);
+                IEnumerable<ICollapsed> collapsedRegions = _outliningManager.GetCollapsedRegions(blockSpan);
 
-                foreach (var region in collapsedRegions)
+                foreach (ICollapsed region in collapsedRegions)
                 {
                     _outliningManager.Expand(region);
                 }
@@ -991,12 +991,12 @@ namespace CommentsVS.Adornments
             try
             {
                 var blockSpan = new SnapshotSpan(snapshot, block.Span);
-                var allRegions = _outliningManager.GetAllRegions(blockSpan);
+                IEnumerable<ICollapsible> allRegions = _outliningManager.GetAllRegions(blockSpan);
 
-                foreach (var region in allRegions)
+                foreach (ICollapsible region in allRegions)
                 {
                     // Only collapse regions that match the comment block (not parent regions like class/method)
-                    var regionSpan = region.Extent.GetSpan(snapshot);
+                    SnapshotSpan regionSpan = region.Extent.GetSpan(snapshot);
                     
                     // Check if this region approximately matches the comment block
                     // (allowing for slight differences in span boundaries)
@@ -1026,7 +1026,7 @@ namespace CommentsVS.Adornments
 
         private void RefreshTags()
         {
-            var snapshot = view.TextBuffer.CurrentSnapshot;
+            ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
             RaiseTagsChanged(new SnapshotSpan(snapshot, 0, snapshot.Length));
         }
     }
