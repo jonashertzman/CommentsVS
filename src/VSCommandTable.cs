@@ -28,11 +28,13 @@ namespace CommentsVS
         public const int CommentsSubMenuGroup = 0x0004;
         public const int CommentsToggleGroup = 0x0005;
         public const int CommentsRenderingGroup = 0x0006;
+        public const int CommentsSettingsGroup = 0x0007;
         public const int ToggleCommentVisibility = 0x0200;
         public const int ToggleRenderedComments = 0x0201;
         public const int ToggleCollapseByDefault = 0x0202;
         public const int SetRenderingModeOff = 0x0203;
         public const int SetRenderingModeCompact = 0x0204;
         public const int SetRenderingModeFull = 0x0205;
+        public const int OpenSettings = 0x0206;
     }
 }

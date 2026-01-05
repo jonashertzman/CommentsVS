@@ -20,14 +20,9 @@ namespace CommentsVS.Adornments
     /// <summary>
     /// Simple command implementation for keyboard bindings
     /// </summary>
-    internal class DelegateCommand : ICommand
+    internal class DelegateCommand(Action execute) : ICommand
     {
-        private readonly Action _execute;
-
-        public DelegateCommand(Action execute)
-        {
-            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
-        }
+        private readonly Action _execute = execute ?? throw new ArgumentNullException(nameof(execute));
 
         public event EventHandler CanExecuteChanged { add { } remove { } }
 
@@ -45,7 +40,7 @@ namespace CommentsVS.Adornments
     {
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
         {
-            if (textView == null || !(textView is IWpfTextView wpfTextView))
+            if (textView == null || textView is not IWpfTextView wpfTextView)
                 return null;
 
             if (textView.TextBuffer != buffer)
@@ -58,7 +53,7 @@ namespace CommentsVS.Adornments
 
     internal sealed class RenderedCommentIntraTextTagger : IntraTextAdornmentTagger<XmlDocCommentBlock, FrameworkElement>
     {
-        private readonly HashSet<int> _temporarilyHiddenComments = new HashSet<int>();
+        private readonly HashSet<int> _temporarilyHiddenComments = [];
         private int? _lastCaretLine;
 
         public RenderedCommentIntraTextTagger(IWpfTextView view) : base(view)
@@ -380,7 +375,7 @@ namespace CommentsVS.Adornments
             // If only summary with no list content, use compact display
             RenderedCommentSection summarySection = rendered.Summary;
             var summaryHasListContent = summarySection != null && summarySection.ListContentStartIndex >= 0;
-            
+
             if (!rendered.HasAdditionalSections && !summaryHasListContent)
             {
                 return CreateCompactModeAdornment(block, fontSize, fontFamily, textBrush, indentMargin);
@@ -403,9 +398,9 @@ namespace CommentsVS.Adornments
             // Render summary section with full content (including lists)
             if (summarySection != null && !summarySection.IsEmpty)
             {
-                RenderSectionContent(panel, summarySection, fontSize, fontFamily, textBrush, headingBrush, 
-                    lineHeight, listIndent, itemSpacing, isSummary: true);
-                
+                RenderSectionContent(panel, summarySection, fontSize, fontFamily, textBrush, headingBrush,
+                    listIndent, itemSpacing, isSummary: true);
+
                 // Add spacing after summary if there are more sections
                 if (rendered.HasAdditionalSections)
                 {
@@ -429,8 +424,8 @@ namespace CommentsVS.Adornments
             {
                 for (var i = 0; i < typeParamSections.Count; i++)
                 {
-                    AddParameterLine(panel, typeParamSections[i], fontSize, fontFamily, textBrush, headingBrush, 
-                        lineHeight, listIndent, itemSpacing, isLast: i == typeParamSections.Count - 1);
+                    AddParameterLine(panel, typeParamSections[i], fontSize, fontFamily, textBrush, headingBrush,
+                        listIndent, itemSpacing, isLast: i == typeParamSections.Count - 1);
                 }
                 // Add spacing after type params group if there are more sections
                 if (paramSections.Count > 0 || otherSections.Count > 0)
@@ -444,8 +439,8 @@ namespace CommentsVS.Adornments
             {
                 for (var i = 0; i < paramSections.Count; i++)
                 {
-                    AddParameterLine(panel, paramSections[i], fontSize, fontFamily, textBrush, headingBrush, 
-                        lineHeight, listIndent, itemSpacing, isLast: i == paramSections.Count - 1);
+                    AddParameterLine(panel, paramSections[i], fontSize, fontFamily, textBrush, headingBrush,
+                        listIndent, itemSpacing, isLast: i == paramSections.Count - 1);
                 }
                 // Add spacing after params group if there are more sections
                 if (otherSections.Count > 0)
@@ -457,9 +452,9 @@ namespace CommentsVS.Adornments
             // Other sections (Returns, Exceptions, Remarks, etc.)
             for (var i = 0; i < otherSections.Count; i++)
             {
-                AddSectionLine(panel, otherSections[i], fontSize, fontFamily, textBrush, headingBrush, 
-                    lineHeight, listIndent, itemSpacing);
-                
+                AddSectionLine(panel, otherSections[i], fontSize, fontFamily, textBrush, headingBrush,
+                    listIndent, itemSpacing);
+
                 // Add spacing between other sections
                 if (i < otherSections.Count - 1)
                 {
@@ -518,12 +513,12 @@ namespace CommentsVS.Adornments
         /// Renders all content from a section, including prose text and list items.
         /// </summary>
         private static void RenderSectionContent(StackPanel panel, RenderedCommentSection section,
-            double fontSize, FontFamily fontFamily, Brush textBrush, Brush headingBrush, 
-            double lineHeight, double listIndent, double itemSpacing, bool isSummary)
+            double fontSize, FontFamily fontFamily, Brush textBrush, Brush headingBrush,
+            double listIndent, double itemSpacing, bool isSummary)
         {
             var isFirstLine = true;
             var previousWasListItem = false;
-            
+
             foreach (RenderedLine line in section.Lines)
             {
                 if (line.IsBlank)
@@ -538,9 +533,9 @@ namespace CommentsVS.Adornments
 
                 // Build the text content from segments
                 var lineText = string.Join("", line.Segments.Select(s => s.Text));
-                
+
                 // Check if this is a list item (starts with bullet or number)
-                var isListItem = lineText.TrimStart().StartsWith("•") || 
+                var isListItem = lineText.TrimStart().StartsWith("•") ||
                                   (lineText.TrimStart().Length > 0 && char.IsDigit(lineText.TrimStart()[0]) && lineText.Contains(". "));
 
                 // Word wrap the line at 100 chars
@@ -556,8 +551,8 @@ namespace CommentsVS.Adornments
                         TextWrapping = TextWrapping.NoWrap,
                         // Use consistent indentation: list items get full indent, continuation lines get more
                         Margin = new Thickness(
-                            i > 0 ? listIndent * 1.5 : (isListItem ? listIndent * 0.3 : 0), 
-                            0, 0, 
+                            i > 0 ? listIndent * 1.5 : (isListItem ? listIndent * 0.3 : 0),
+                            0, 0,
                             itemSpacing)
                     };
 
@@ -591,7 +586,7 @@ namespace CommentsVS.Adornments
 
                     panel.Children.Add(textBlock);
                 }
-                
+
                 isFirstLine = false;
                 previousWasListItem = isListItem;
             }
@@ -603,8 +598,8 @@ namespace CommentsVS.Adornments
         }
 
         private static void AddParameterLine(StackPanel panel, RenderedCommentSection section,
-            double fontSize, FontFamily fontFamily, Brush textBrush, Brush headingBrush, 
-            double lineHeight, double listIndent, double itemSpacing, bool isLast)
+            double fontSize, FontFamily fontFamily, Brush textBrush, Brush headingBrush,
+            double listIndent, double itemSpacing, bool isLast)
         {
             var content = GetSectionContent(section);
             var name = section.Name ?? "";
@@ -613,7 +608,7 @@ namespace CommentsVS.Adornments
 
             // Word wrap at 100 chars
             List<string> wrappedLines = WordWrap(fullText, 100);
-            
+
             for (var i = 0; i < wrappedLines.Count; i++)
             {
                 var textBlock = new TextBlock
@@ -623,14 +618,14 @@ namespace CommentsVS.Adornments
                     Foreground = textBrush,
                     TextWrapping = TextWrapping.NoWrap,
                     Margin = new Thickness(
-                        i > 0 ? listIndent : 0, 
-                        0, 
-                        0, 
+                        i > 0 ? listIndent : 0,
+                        0,
+                        0,
                         i == wrappedLines.Count - 1 ? (isLast ? 0 : itemSpacing) : 0)
                 };
 
                 var lineText = wrappedLines[i];
-                
+
                 if (i == 0)
                 {
                     // First line has bullet, name (bold), and start of content
@@ -662,8 +657,8 @@ namespace CommentsVS.Adornments
         }
 
         private static void AddSectionLine(StackPanel panel, RenderedCommentSection section,
-            double fontSize, FontFamily fontFamily, Brush textBrush, Brush headingBrush, 
-            double lineHeight, double listIndent, double itemSpacing)
+            double fontSize, FontFamily fontFamily, Brush textBrush, Brush headingBrush,
+            double listIndent, double itemSpacing)
         {
             var heading = GetSectionHeading(section);
 
@@ -682,9 +677,9 @@ namespace CommentsVS.Adornments
                         Foreground = headingBrush,
                         FontWeight = FontWeights.SemiBold,
                         TextWrapping = TextWrapping.NoWrap,
-                        Margin = new Thickness(0, 0, 0, itemSpacing)
+                        Margin = new Thickness(0, 0, 0, itemSpacing),
+                        Text = heading
                     };
-                    headingBlock.Text = heading;
                     panel.Children.Add(headingBlock);
                 }
 
@@ -741,9 +736,9 @@ namespace CommentsVS.Adornments
                         Foreground = textBrush,
                         TextWrapping = TextWrapping.NoWrap,
                         Margin = new Thickness(
-                            i > 0 ? listIndent : 0, 
-                            0, 
-                            0, 
+                            i > 0 ? listIndent : 0,
+                            0,
+                            0,
                             i == wrappedLines.Count - 1 ? itemSpacing * 0.5 : 0)
                     };
 

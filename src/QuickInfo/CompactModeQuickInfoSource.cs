@@ -1,5 +1,4 @@
 using System.ComponentModel.Composition;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -9,7 +8,6 @@ using System.Windows.Media;
 using CommentsVS.Options;
 using CommentsVS.Services;
 using Microsoft.VisualStudio.Language.Intellisense;
-using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Utilities;
 
@@ -33,15 +31,8 @@ namespace CommentsVS.QuickInfo
     /// Provides hover tooltips for collapsed XML doc comments in Compact mode,
     /// showing the full rendered view.
     /// </summary>
-    internal sealed class CompactModeQuickInfoSource : IAsyncQuickInfoSource
+    internal sealed class CompactModeQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickInfoSource
     {
-        private readonly ITextBuffer _textBuffer;
-
-        public CompactModeQuickInfoSource(ITextBuffer textBuffer)
-        {
-            _textBuffer = textBuffer;
-        }
-
         public async Task<QuickInfoItem> GetQuickInfoItemAsync(
             IAsyncQuickInfoSession session,
             CancellationToken cancellationToken)
@@ -53,14 +44,14 @@ namespace CommentsVS.QuickInfo
                 return null;
             }
 
-            SnapshotPoint? triggerPoint = session.GetTriggerPoint(_textBuffer.CurrentSnapshot);
+            SnapshotPoint? triggerPoint = session.GetTriggerPoint(textBuffer.CurrentSnapshot);
             if (!triggerPoint.HasValue)
             {
                 return null;
             }
 
             ITextSnapshot snapshot = triggerPoint.Value.Snapshot;
-            LanguageCommentStyle commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
+            var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
             if (commentStyle == null)
             {
                 return null;
@@ -76,18 +67,18 @@ namespace CommentsVS.QuickInfo
 
             // Render the comment in full format
             RenderedComment renderedComment = XmlDocCommentRenderer.Render(block);
-            
+
             // Only show tooltip if there's content not visible in compact inline view:
             // 1. Additional sections beyond summary (params, returns, remarks, etc.)
             // 2. Summary was truncated (>100 chars in compact mode)
             // 3. Summary has list content not shown inline
-            bool hasAdditionalSections = renderedComment.HasAdditionalSections;
-            
-            string strippedSummary = XmlDocCommentRenderer.GetStrippedSummary(block);
-            bool summaryTruncated = !string.IsNullOrEmpty(strippedSummary) && strippedSummary.Length > 100;
-            
+            var hasAdditionalSections = renderedComment.HasAdditionalSections;
+
+            var strippedSummary = XmlDocCommentRenderer.GetStrippedSummary(block);
+            var summaryTruncated = !string.IsNullOrEmpty(strippedSummary) && strippedSummary.Length > 100;
+
             RenderedCommentSection summarySection = renderedComment.Summary;
-            bool summaryHasListContent = summarySection != null && summarySection.ListContentStartIndex >= 0;
+            var summaryHasListContent = summarySection != null && summarySection.ListContentStartIndex >= 0;
 
             if (!hasAdditionalSections && !summaryTruncated && !summaryHasListContent)
             {
@@ -99,7 +90,7 @@ namespace CommentsVS.QuickInfo
 
             // Create the tooltip content
             FrameworkElement tooltipContent = CreateFullRenderingTooltip(renderedComment);
-            
+
             if (tooltipContent == null)
             {
                 return null;

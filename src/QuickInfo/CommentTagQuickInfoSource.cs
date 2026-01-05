@@ -7,7 +7,6 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using CommentsVS.Options;
 using Microsoft.VisualStudio.Language.Intellisense;
-using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Utilities;
 
@@ -55,7 +54,7 @@ namespace CommentsVS.QuickInfo
             }
 
             ITextSnapshotLine line = triggerPoint.Value.GetContainingLine();
-            string lineText = line.GetText();
+            var lineText = line.GetText();
 
             // Check if this line is a comment
             if (!_commentLineRegex.IsMatch(lineText))
@@ -63,7 +62,7 @@ namespace CommentsVS.QuickInfo
                 return null;
             }
 
-            int positionInLine = triggerPoint.Value.Position - line.Start.Position;
+            var positionInLine = triggerPoint.Value.Position - line.Start.Position;
 
             // Find comment tags in the line
             foreach (Match match in _commentTagRegex.Matches(lineText))
@@ -71,8 +70,8 @@ namespace CommentsVS.QuickInfo
                 // Check if the trigger point is within this match
                 if (positionInLine >= match.Index && positionInLine <= match.Index + match.Length)
                 {
-                    string tag = match.Groups["tag"].Value.ToUpperInvariant();
-                    (string title, string description) = GetTagDescription(tag);
+                    var tag = match.Groups["tag"].Value.ToUpperInvariant();
+                    (var title, var description) = GetTagDescription(tag);
 
                     if (!string.IsNullOrEmpty(description))
                     {

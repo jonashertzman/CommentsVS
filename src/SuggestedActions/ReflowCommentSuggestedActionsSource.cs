@@ -70,8 +70,8 @@ namespace CommentsVS.SuggestedActions
                 SpanTrackingMode.EdgeInclusive);
 
             var action = new ReflowCommentSuggestedAction(
-                trackingSpan, 
-                block, 
+                trackingSpan,
+                block,
                 textBuffer,
                 textView as IWpfTextView,
                 outliningManager);
@@ -111,11 +111,11 @@ namespace CommentsVS.SuggestedActions
         {
             // Get the current settings
             General options = General.Instance;
-            int maxLineLength = options.MaxLineLength;
+            var maxLineLength = options.MaxLineLength;
 
             // Check if any line exceeds the threshold
             ITextSnapshot snapshot = textBuffer.CurrentSnapshot;
-            for (int lineNum = block.StartLine; lineNum <= block.EndLine; lineNum++)
+            for (var lineNum = block.StartLine; lineNum <= block.EndLine; lineNum++)
             {
                 ITextSnapshotLine line = snapshot.GetLineFromLineNumber(lineNum);
                 if (line.Length > maxLineLength)
@@ -127,7 +127,7 @@ namespace CommentsVS.SuggestedActions
             // Also check if reflow would produce different output
             // (e.g., compact style conversion, multi-line to single-line, etc.)
             CommentReflowEngine engine = options.CreateReflowEngine();
-            string reflowed = engine.ReflowComment(block);
+            var reflowed = engine.ReflowComment(block);
 
             if (reflowed == null)
             {
@@ -135,7 +135,7 @@ namespace CommentsVS.SuggestedActions
             }
 
             // Compare with original text
-            string originalText = snapshot.GetText(block.Span);
+            var originalText = snapshot.GetText(block.Span);
             return !string.Equals(originalText, reflowed, StringComparison.Ordinal);
         }
 

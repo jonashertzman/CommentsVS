@@ -19,9 +19,9 @@ namespace CommentsVS.Adornments
         where TAdornment : UIElement
     {
         protected readonly IWpfTextView view;
-        private Dictionary<SnapshotSpan, TAdornment> adornmentCache = new Dictionary<SnapshotSpan, TAdornment>();
+        private Dictionary<SnapshotSpan, TAdornment> adornmentCache = new();
         protected ITextSnapshot snapshot { get; private set; }
-        private readonly List<SnapshotSpan> invalidatedSpans = new List<SnapshotSpan>();
+        private readonly List<SnapshotSpan> invalidatedSpans = new();
 
         protected IntraTextAdornmentTagger(IWpfTextView view)
         {

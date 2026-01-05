@@ -42,37 +42,37 @@ namespace CommentsVS.Options
         private const string _reflowCategory = "Comment Reflow";
 
         [Category(_reflowCategory)]
-        [DisplayName("Maximum Line Length")]
+        [DisplayName("Maximum line length")]
         [Description("The maximum line length for XML documentation comments before wrapping to a new line. Default is 120.")]
         [DefaultValue(120)]
         public int MaxLineLength { get; set; } = 120;
 
         [Category(_reflowCategory)]
-        [DisplayName("Enable Reflow on Format Document")]
+        [DisplayName("Enable reflow on Format Document")]
         [Description("When enabled, XML documentation comments will be reflowed when using Format Document (Ctrl+K, Ctrl+D).")]
         [DefaultValue(true)]
         public bool ReflowOnFormatDocument { get; set; } = true;
 
         [Category(_reflowCategory)]
-        [DisplayName("Enable Reflow on Paste")]
+        [DisplayName("Enable reflow on paste")]
         [Description("When enabled, XML documentation comments will be automatically reflowed when pasting text into a comment block.")]
         [DefaultValue(true)]
         public bool ReflowOnPaste { get; set; } = true;
 
         [Category(_reflowCategory)]
-        [DisplayName("Enable Reflow While Typing")]
+        [DisplayName("Enable reflow while typing")]
         [Description("When enabled, XML documentation comments will be automatically reflowed as you type when a line exceeds the maximum length.")]
         [DefaultValue(true)]
         public bool ReflowOnTyping { get; set; } = true;
 
         [Category(_reflowCategory)]
-        [DisplayName("Use Compact Style for Short Summaries")]
+        [DisplayName("Use compact style for short summaries")]
         [Description("When enabled, short summaries that fit on one line will use the compact format: /// <summary>Short text.</summary>")]
         [DefaultValue(true)]
         public bool UseCompactStyleForShortSummaries { get; set; } = true;
 
         [Category(_reflowCategory)]
-        [DisplayName("Preserve Blank Lines")]
+        [DisplayName("Preserve blank lines")]
         [Description("When enabled, blank lines within XML documentation comments (paragraph separators) will be preserved during reflow.")]
         [DefaultValue(true)]
         public bool PreserveBlankLines { get; set; } = true;
@@ -80,7 +80,7 @@ namespace CommentsVS.Options
         private const string _outliningCategory = "Comment Outlining";
 
         [Category(_outliningCategory)]
-        [DisplayName("Collapsed by Default")]
+        [DisplayName("Collapsed by default")]
         [Description("When enabled, XML documentation comments will be automatically collapsed when opening a file. Only applies when Rendering Mode is Off or Compact.")]
         [DefaultValue(false)]
         public bool CollapseCommentsOnFileOpen { get; set; } = false;
@@ -88,7 +88,7 @@ namespace CommentsVS.Options
         private const string _tagsCategory = "Comment Tags";
 
         [Category(_tagsCategory)]
-        [DisplayName("Enable Comment Tag Highlighting")]
+        [DisplayName("Enable comment tag highlighting")]
         [Description("When enabled, comment tags like TODO, HACK, NOTE, BUG, FIXME, UNDONE, and REVIEW will be highlighted. Colors can be customized in Tools > Options > Environment > Fonts and Colors.")]
         [DefaultValue(true)]
         public bool EnableCommentTagHighlighting { get; set; } = true;
@@ -96,7 +96,7 @@ namespace CommentsVS.Options
         private const string _linksCategory = "Issue Links";
 
         [Category(_linksCategory)]
-        [DisplayName("Enable Issue Links")]
+        [DisplayName("Enable issue links")]
         [Description("When enabled, issue references like #123 in comments will become clickable links to the issue on GitHub, GitLab, Bitbucket, or Azure DevOps.")]
         [DefaultValue(true)]
         public bool EnableIssueLinks { get; set; } = true;
@@ -104,7 +104,7 @@ namespace CommentsVS.Options
         private const string _renderingCategory = "Comment Rendering";
 
         [Category(_renderingCategory)]
-        [DisplayName("Rendering Mode")]
+        [DisplayName("Rendering mode")]
         [Description("Controls how XML documentation comments are displayed. Off: Raw XML syntax. Compact: Outlining with stripped tags. Full: Rich formatted rendering. Toggle with Ctrl+M, Ctrl+R.")]
         [DefaultValue(RenderingMode.Off)]
         [TypeConverter(typeof(EnumConverter))]

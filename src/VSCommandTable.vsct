@@ -38,6 +38,10 @@
       <Group guid="CommentsVS" id="CommentsRenderingGroup" priority="0x0200">
         <Parent guid="CommentsVS" id="CommentsSubMenu"/>
       </Group>
+      <!-- Group for settings command inside submenu -->
+      <Group guid="CommentsVS" id="CommentsSettingsGroup" priority="0x0300">
+        <Parent guid="CommentsVS" id="CommentsSubMenu"/>
+      </Group>
     </Groups>
 
     <Buttons>
@@ -105,6 +109,17 @@
           <LocCanonicalName>.CommentsVS.SetRenderingModeFull</LocCanonicalName>
         </Strings>
       </Button>
+      <!-- Settings -->
+      <Button guid="CommentsVS" id="OpenSettings" priority="0x0100" type="Button">
+        <Parent guid="CommentsVS" id="CommentsSettingsGroup"/>
+        <Icon guid="ImageCatalogGuid" id="Settings" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>Settings...</ButtonText>
+          <CanonicalName>.CommentsVS.OpenSettings</CanonicalName>
+          <LocCanonicalName>.CommentsVS.OpenSettings</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -131,12 +146,14 @@
       <IDSymbol name="CommentsSubMenuGroup" value="0x0004" />
       <IDSymbol name="CommentsToggleGroup" value="0x0005" />
       <IDSymbol name="CommentsRenderingGroup" value="0x0006" />
+      <IDSymbol name="CommentsSettingsGroup" value="0x0007" />
       <IDSymbol name="ToggleCommentVisibility" value="0x0200" />
       <IDSymbol name="ToggleRenderedComments" value="0x0201" />
       <IDSymbol name="ToggleCollapseByDefault" value="0x0202" />
       <IDSymbol name="SetRenderingModeOff" value="0x0203" />
       <IDSymbol name="SetRenderingModeCompact" value="0x0204" />
       <IDSymbol name="SetRenderingModeFull" value="0x0205" />
+      <IDSymbol name="OpenSettings" value="0x0206" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>
