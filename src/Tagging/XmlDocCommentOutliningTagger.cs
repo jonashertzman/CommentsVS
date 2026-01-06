@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using CommentsVS.Commands;
@@ -27,9 +26,8 @@ namespace CommentsVS.Tagging
     }
 
     /// <summary>
-    /// Provides outlining regions for XML documentation comments.
-    /// When rendered comments are enabled, outlining is disabled to avoid conflicts
-    /// with the IntraTextAdornment that replaces the comment text.
+    /// Provides outlining regions for XML documentation comments. When rendered comments are enabled, outlining is
+    /// disabled to avoid conflicts with the IntraTextAdornment that replaces the comment text.
     /// </summary>
     internal sealed class XmlDocCommentOutliningTagger : ITagger<IOutliningRegionTag>
     {

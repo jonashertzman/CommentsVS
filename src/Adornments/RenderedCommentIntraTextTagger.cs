@@ -54,12 +54,14 @@ namespace CommentsVS.Adornments
     internal sealed class RenderedCommentIntraTextTagger : IntraTextAdornmentTagger<XmlDocCommentBlock, FrameworkElement>
     {
         private readonly HashSet<int> _temporarilyHiddenComments = [];
+        private readonly HashSet<int> _recentlyEditedLines = [];
         private int? _lastCaretLine;
 
         public RenderedCommentIntraTextTagger(IWpfTextView view) : base(view)
         {
             SetRenderingModeHelper.RenderedCommentsStateChanged += OnRenderedStateChanged;
             view.Caret.PositionChanged += OnCaretPositionChanged;
+            view.TextBuffer.Changed += OnBufferChanged;
 
             // Listen for zoom level changes to refresh adornments with new font size
             view.ZoomLevelChanged += OnZoomLevelChanged;
@@ -76,6 +78,22 @@ namespace CommentsVS.Adornments
 
             // Store tagger in view properties so command handler can find it
             view.Properties[typeof(RenderedCommentIntraTextTagger)] = this;
+        }
+
+        private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
+        {
+            // Track which lines were edited so we can suppress rendering for new/modified comments
+            foreach (ITextChange change in e.Changes)
+            {
+                // Get the line numbers affected by this change
+                int startLine = e.After.GetLineFromPosition(change.NewPosition).LineNumber;
+                int endLine = e.After.GetLineFromPosition(change.NewEnd).LineNumber;
+
+                for (int line = startLine; line <= endLine; line++)
+                {
+                    _recentlyEditedLines.Add(line);
+                }
+            }
         }
 
         private void DeferredRefreshTags()
@@ -174,46 +192,66 @@ namespace CommentsVS.Adornments
         {
             var currentLine = e.NewPosition.BufferPosition.GetContainingLine().LineNumber;
 
-            // If caret moved to a different line, check if we should re-enable rendering
+            // If caret moved to a different line, check if we need to update rendering
             if (_lastCaretLine.HasValue && _lastCaretLine.Value != currentLine)
             {
-                // Check if we moved away from any temporarily hidden comments
-                if (_temporarilyHiddenComments.Count > 0)
-                {
-                    ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
-                    var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
-                    if (commentStyle != null)
-                    {
-                        var parser = new XmlDocCommentParser(commentStyle);
-                        IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
+                var shouldRefresh = false;
 
-                        // Find which comments should be re-enabled
-                        var shouldRefresh = false;
-                        foreach (var hiddenLine in _temporarilyHiddenComments.ToList())
+                ITextSnapshot snapshot = view.TextBuffer.CurrentSnapshot;
+                var commentStyle = LanguageCommentStyle.GetForContentType(snapshot.ContentType);
+
+                if (commentStyle != null)
+                {
+                    var parser = new XmlDocCommentParser(commentStyle);
+                    IReadOnlyList<XmlDocCommentBlock> blocks = parser.FindAllCommentBlocks(snapshot);
+
+                    // Check if we moved away from any temporarily hidden comments (ESC key)
+                    foreach (var hiddenLine in _temporarilyHiddenComments.ToList())
+                    {
+                        XmlDocCommentBlock block = blocks.FirstOrDefault(b => b.StartLine == hiddenLine);
+                        if (block != null)
                         {
-                            XmlDocCommentBlock block = blocks.FirstOrDefault(b => b.StartLine == hiddenLine);
-                            if (block != null)
+                            // Check if caret is outside this comment's range
+                            if (currentLine < block.StartLine || currentLine > block.EndLine)
                             {
-                                // Check if caret is outside this comment's range
-                                if (currentLine < block.StartLine || currentLine > block.EndLine)
-                                {
-                                    _temporarilyHiddenComments.Remove(hiddenLine);
-                                    shouldRefresh = true;
-                                }
+                                _temporarilyHiddenComments.Remove(hiddenLine);
+                                shouldRefresh = true;
                             }
                         }
+                    }
 
-                        // Re-enable rendering for comments the caret moved away from
-                        if (shouldRefresh)
+                    // Check if we moved away from a recently edited comment - clear edit tracking
+                    if (_recentlyEditedLines.Count > 0)
+                    {
+                        // Find which comment block (if any) we moved away from
+                        foreach (XmlDocCommentBlock block in blocks)
                         {
-                            DeferredRefreshTags();
+                            bool wasInComment = _lastCaretLine.Value >= block.StartLine && _lastCaretLine.Value <= block.EndLine;
+                            bool nowInComment = currentLine >= block.StartLine && currentLine <= block.EndLine;
+
+                            // If we moved out of a comment, clear the edit tracking for those lines
+                            if (wasInComment && !nowInComment)
+                            {
+                                for (int line = block.StartLine; line <= block.EndLine; line++)
+                                {
+                                    _recentlyEditedLines.Remove(line);
+                                }
+                                shouldRefresh = true;
+                            }
                         }
                     }
+                }
+
+                if (shouldRefresh)
+                {
+                    DeferredRefreshTags();
                 }
             }
 
             _lastCaretLine = currentLine;
         }
+
+
 
         private void OnRenderedStateChanged(object sender, EventArgs e)
         {
@@ -257,6 +295,9 @@ namespace CommentsVS.Adornments
                 yield break;
             }
 
+            // Get current caret line
+            var caretLine = view.Caret.Position.BufferPosition.GetContainingLine().LineNumber;
+
             var parser = new XmlDocCommentParser(commentStyle);
             IReadOnlyList<XmlDocCommentBlock> commentBlocks = parser.FindAllCommentBlocks(snapshot);
 
@@ -268,14 +309,37 @@ namespace CommentsVS.Adornments
                     continue;
                 }
 
-                var blockSpan = new SnapshotSpan(snapshot, block.Span);
+                // Skip comments that are being actively edited:
+                // - Caret is inside the comment AND
+                // - The comment was recently modified (user is typing, not just navigating)
+                bool caretInComment = caretLine >= block.StartLine && caretLine <= block.EndLine;
+                bool commentWasEdited = false;
+                for (int line = block.StartLine; line <= block.EndLine; line++)
+                {
+                    if (_recentlyEditedLines.Contains(line))
+                    {
+                        commentWasEdited = true;
+                        break;
+                    }
+                }
+
+                if (caretInComment && commentWasEdited)
+                {
+                    continue;
+                }
+
+                // Adjust span to start after indentation so the adornment
+                // appears at the same column as the comment prefix (///)
+                var adjustedStart = block.Span.Start + block.Indentation.Length;
+                var adjustedSpan = new Microsoft.VisualStudio.Text.Span(adjustedStart, block.Span.End - adjustedStart);
+                var blockSpan = new SnapshotSpan(snapshot, adjustedSpan);
 
                 if (!spans.IntersectsWith(new NormalizedSnapshotSpanCollection(blockSpan)))
                 {
                     continue;
                 }
 
-                // The adornment replaces the entire comment block span
+                // The adornment replaces the comment block (excluding leading indentation)
                 yield return Tuple.Create(blockSpan, (PositionAffinity?)PositionAffinity.Predecessor, block);
             }
         }
@@ -294,44 +358,19 @@ namespace CommentsVS.Adornments
             var textBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128));
             var headingBrush = new SolidColorBrush(Color.FromRgb(100, 100, 100));
 
-            // Calculate the pixel width for the indentation margin
-            var indentMargin = CalculateIndentationWidth(block.Indentation, fontFamily, editorFontSize);
-
             if (renderingMode == RenderingMode.Full)
             {
-                return CreateFullModeAdornment(block, fontSize, fontFamily, textBrush, headingBrush, indentMargin);
+                return CreateFullModeAdornment(block, fontSize, fontFamily, textBrush, headingBrush);
             }
             else
             {
-                return CreateCompactModeAdornment(block, fontSize, fontFamily, textBrush, indentMargin);
+                return CreateCompactModeAdornment(block, fontSize, fontFamily, textBrush);
             }
         }
 
-        /// <summary>
-        /// Calculates the pixel width of the indentation string using the editor font.
-        /// </summary>
-        private double CalculateIndentationWidth(string indentation, FontFamily fontFamily, double fontSize)
-        {
-            if (string.IsNullOrEmpty(indentation))
-            {
-                return 0;
-            }
-
-            // Use a FormattedText to measure the width of the indentation
-            var formattedText = new FormattedText(
-                indentation,
-                System.Globalization.CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(fontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
-                fontSize,
-                Brushes.Black,
-                VisualTreeHelper.GetDpi(view.VisualElement).PixelsPerDip);
-
-            return formattedText.WidthIncludingTrailingWhitespace;
-        }
 
         private FrameworkElement CreateCompactModeAdornment(XmlDocCommentBlock block, double fontSize,
-            FontFamily fontFamily, Brush textBrush, double indentMargin)
+            FontFamily fontFamily, Brush textBrush)
         {
             // Compact: single line with stripped summary, truncated at 100 chars
             var strippedSummary = XmlDocCommentRenderer.GetStrippedSummary(block);
@@ -353,7 +392,8 @@ namespace CommentsVS.Adornments
                 Background = Brushes.Transparent,
                 TextWrapping = TextWrapping.NoWrap,
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(indentMargin, 0, 0, 0),
+                // Small top padding to align baseline with code below
+                Padding = new Thickness(0, 1, 0, 0),
                 ToolTip = CreateTooltip(block),
                 Cursor = Cursors.Hand
             };
@@ -368,7 +408,7 @@ namespace CommentsVS.Adornments
 
 
         private FrameworkElement CreateFullModeAdornment(XmlDocCommentBlock block, double fontSize,
-            FontFamily fontFamily, Brush textBrush, Brush headingBrush, double indentMargin)
+            FontFamily fontFamily, Brush textBrush, Brush headingBrush)
         {
             RenderedComment rendered = XmlDocCommentRenderer.Render(block);
 
@@ -378,7 +418,7 @@ namespace CommentsVS.Adornments
 
             if (!rendered.HasAdditionalSections && !summaryHasListContent)
             {
-                return CreateCompactModeAdornment(block, fontSize, fontFamily, textBrush, indentMargin);
+                return CreateCompactModeAdornment(block, fontSize, fontFamily, textBrush);
             }
 
             // Calculate spacing based on font size for consistent visual rhythm
@@ -392,7 +432,8 @@ namespace CommentsVS.Adornments
             {
                 Orientation = Orientation.Vertical,
                 Background = Brushes.Transparent,
-                Margin = new Thickness(indentMargin, 0, 0, 0)
+                // Small top margin to align with code below
+                Margin = new Thickness(0, 1, 0, 0)
             };
 
             // Render summary section with full content (including lists)
