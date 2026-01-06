@@ -168,11 +168,7 @@ namespace CommentsVS.QuickInfo
 
         private static void OnTaskListLinkClicked(object sender, RoutedEventArgs e)
         {
-            _ = ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
-            {
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                await VS.Commands.ExecuteAsync("View.TaskList");
-            });
+            VS.Commands.ExecuteAsync("View.TaskList").FireAndForget();
         }
     }
 }

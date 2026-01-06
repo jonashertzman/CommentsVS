@@ -49,6 +49,7 @@ namespace CommentsVS.Tagging
 
         private void OnRenderedStateChanged(object sender, EventArgs e)
         {
+            // Raise tags changed to update outlining regions for the new mode
             RaiseTagsChanged();
         }
 

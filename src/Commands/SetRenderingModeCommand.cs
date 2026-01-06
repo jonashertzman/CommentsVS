@@ -81,14 +81,24 @@ namespace CommentsVS.Commands
             General.Instance.CommentRenderingMode = mode;
             await General.Instance.SaveAsync();
 
+            // When switching to Compact or Full mode, we need to expand any collapsed
+            // XML doc comment regions so they don't interfere with IntraText adornments.
+            // The outlining tagger will stop providing regions, but VS keeps existing ones
+            // until they're explicitly expanded.
+            if ((mode == RenderingMode.Full || mode == RenderingMode.Compact) && previousMode == RenderingMode.Off)
+            {
+                await ExpandXmlDocCommentsAsync();
+            }
+
             // Notify that rendered comments state changed
             RenderedCommentsStateChanged?.Invoke(null, EventArgs.Empty);
 
-            // When switching to/from Compact mode, expand all XML doc comments so they can
-            // re-collapse with the correct collapsed text.
-            if (mode == RenderingMode.Compact || previousMode == RenderingMode.Compact)
+            // When switching back to Off mode from Compact/Full, the outlining tagger
+            // will start providing regions again. If "Collapse by Default" is enabled,
+            // we need to collapse them.
+            if (mode == RenderingMode.Off && General.Instance.CollapseCommentsOnFileOpen)
             {
-                await ExpandAndRecollapseXmlDocCommentsAsync();
+                await CollapseXmlDocCommentsAsync();
             }
 
             var modeName = mode switch
@@ -103,9 +113,10 @@ namespace CommentsVS.Commands
         }
 
         /// <summary>
-        /// Expands and re-collapses all XML doc comment regions to refresh their collapsed text.
+        /// Expands all collapsed XML doc comment regions (without re-collapsing).
+        /// Used when switching to Compact/Full mode where IntraText adornments replace the text.
         /// </summary>
-        private static async Task ExpandAndRecollapseXmlDocCommentsAsync()
+        private static async Task ExpandXmlDocCommentsAsync()
         {
             DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
             if (docView?.TextView == null)
@@ -126,39 +137,53 @@ namespace CommentsVS.Commands
             }
 
             var fullSpan = new SnapshotSpan(snapshot, 0, snapshot.Length);
-            var commentRegions = outliningManager
-                .GetAllRegions(fullSpan)
+            var collapsedRegions = outliningManager
+                .GetCollapsedRegions(fullSpan)
                 .Where(r => IsXmlDocCommentRegion(r, snapshot))
                 .ToList();
 
-            if (commentRegions.Count == 0)
-            {
-                return;
-            }
-
-            // First expand all collapsed regions
-            var collapsedRegions = commentRegions.OfType<ICollapsed>().ToList();
             foreach (ICollapsed collapsed in collapsedRegions)
             {
                 outliningManager.Expand(collapsed);
             }
+        }
 
-            // Small delay to let the outlining manager update
-            await Task.Delay(50);
-
-            // Re-collapse all regions that were collapsed
-            ITextSnapshot currentSnapshot = textView.TextSnapshot;
-            var currentFullSpan = new SnapshotSpan(currentSnapshot, 0, currentSnapshot.Length);
-            IEnumerable<ICollapsible> currentRegions = outliningManager
-                .GetAllRegions(currentFullSpan)
-                .Where(r => IsXmlDocCommentRegion(r, currentSnapshot));
-
-            foreach (ICollapsible region in currentRegions)
+        /// <summary>
+        /// Collapses all XML doc comment regions.
+        /// Used when switching back to Off mode with "Collapse by Default" enabled.
+        /// </summary>
+        private static async Task CollapseXmlDocCommentsAsync()
+        {
+            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
+            if (docView?.TextView == null)
             {
-                if (!region.IsCollapsed)
-                {
-                    outliningManager.TryCollapse(region);
-                }
+                return;
+            }
+
+            IWpfTextView textView = docView.TextView;
+            ITextSnapshot snapshot = textView.TextSnapshot;
+
+            IComponentModel2 componentModel = await VS.Services.GetComponentModelAsync();
+            IOutliningManagerService outliningManagerService = componentModel.GetService<IOutliningManagerService>();
+            IOutliningManager outliningManager = outliningManagerService?.GetOutliningManager(textView);
+
+            if (outliningManager == null)
+            {
+                return;
+            }
+
+            // Wait a bit for the outlining tagger to provide the new regions
+            await Task.Delay(100);
+
+            var fullSpan = new SnapshotSpan(snapshot, 0, snapshot.Length);
+            var regions = outliningManager
+                .GetAllRegions(fullSpan)
+                .Where(r => IsXmlDocCommentRegion(r, snapshot) && !r.IsCollapsed)
+                .ToList();
+
+            foreach (ICollapsible region in regions)
+            {
+                outliningManager.TryCollapse(region);
             }
         }
 

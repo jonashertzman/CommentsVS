@@ -89,6 +89,15 @@ namespace CommentsVS.Adornments
             TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(span));
         }
 
+        /// <summary>
+        /// Clears the adornment cache. Call when adornments need to be completely recreated
+        /// (e.g., when rendering mode changes).
+        /// </summary>
+        protected void ClearAdornmentCache()
+        {
+            _adornmentCache.Clear();
+        }
+
         private void HandleLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
         {
             SnapshotSpan visibleSpan = view.TextViewLines.FormattedSpan;
@@ -136,10 +145,27 @@ namespace CommentsVS.Adornments
                 PositionAffinity? affinity = spanDataPair.Item2;
                 TData adornmentData = spanDataPair.Item3;
 
-                if (_adornmentCache.TryGetValue(snapshotSpan, out TAdornment adornment))
+                TAdornment adornment;
+                if (_adornmentCache.TryGetValue(snapshotSpan, out TAdornment cachedAdornment))
                 {
-                    if (UpdateAdornment(adornment, adornmentData))
+                    if (UpdateAdornment(cachedAdornment, adornmentData))
+                    {
+                        // Keep the cached adornment
                         toRemove.Remove(snapshotSpan);
+                        adornment = cachedAdornment;
+                    }
+                    else
+                    {
+                        // UpdateAdornment returned false, create a new adornment
+                        adornment = CreateAdornment(adornmentData, snapshotSpan);
+                        if (adornment == null)
+                            continue;
+
+                        adornment.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        // Replace the cached adornment
+                        _adornmentCache[snapshotSpan] = adornment;
+                        toRemove.Remove(snapshotSpan);
+                    }
                 }
                 else
                 {

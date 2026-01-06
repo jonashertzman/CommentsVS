@@ -12,7 +12,7 @@ namespace CommentsVS
         public const string Name = "Comment Studio";
         public const string Description = @"Enhance XML documentation comments with rich rendering, automatic reflow, collapsing, color-coded tags, and clickable issue links.";
         public const string Language = "en-US";
-        public const string Version = "1.0.903";
+        public const string Version = "1.0.904";
         public const string Author = "Mads Kristensen";
         public const string Tags = "docs, xml, comments, documentation";
         public const bool IsPreview = false;
