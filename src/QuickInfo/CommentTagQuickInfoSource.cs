@@ -168,7 +168,7 @@ namespace CommentsVS.QuickInfo
 
         private static void OnTaskListLinkClicked(object sender, RoutedEventArgs e)
         {
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            _ = ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 await VS.Commands.ExecuteAsync("View.TaskList");

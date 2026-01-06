@@ -76,7 +76,7 @@ namespace CommentsVS.Tagging
             // Initialize repo info lazily
             if (!_repoInfoInitialized)
             {
-                InitializeRepoInfo(spans[0].Snapshot);
+                InitializeRepoInfo();
             }
 
             if (_repoInfo == null)
@@ -115,7 +115,7 @@ namespace CommentsVS.Tagging
             }
         }
 
-        private void InitializeRepoInfo(ITextSnapshot snapshot)
+        private void InitializeRepoInfo()
         {
             _repoInfoInitialized = true;
 
