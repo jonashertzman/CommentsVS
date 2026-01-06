@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using CommentsVS.Options;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
@@ -14,6 +15,14 @@ namespace CommentsVS.Commands
     [Command(PackageIds.ToggleCommentVisibility)]
     internal sealed class ToggleCommentVisibilityCommand : BaseCommand<ToggleCommentVisibilityCommand>
     {
+        protected override void BeforeQueryStatus(EventArgs e)
+        {
+            // Disable the command when rendering mode is Compact or Full,
+            // since outlining regions are not used in those modes.
+            RenderingMode mode = General.Instance.CommentRenderingMode;
+            Command.Enabled = mode == RenderingMode.Off;
+        }
+
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
             DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
