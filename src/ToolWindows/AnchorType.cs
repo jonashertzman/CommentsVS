@@ -1,3 +1,4 @@
+using System.Windows.Media;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
 
@@ -39,6 +40,25 @@ namespace CommentsVS.ToolWindows
                 AnchorType.Review => "REVIEW",
                 AnchorType.Anchor => "ANCHOR",
                 _ => anchorType.ToString().ToUpperInvariant()
+            };
+        }
+
+        /// <summary>
+        /// Gets the color for the anchor type, matching the editor classification colors.
+        /// </summary>
+        public static Color GetColor(this AnchorType anchorType)
+        {
+            return anchorType switch
+            {
+                AnchorType.Todo => Colors.Orange,
+                AnchorType.Hack => Colors.Crimson,
+                AnchorType.Note => Colors.LimeGreen,
+                AnchorType.Bug => Colors.Red,
+                AnchorType.Fixme => Colors.OrangeRed,
+                AnchorType.Undone => Colors.MediumPurple,
+                AnchorType.Review => Colors.DodgerBlue,
+                AnchorType.Anchor => Colors.Cyan,
+                _ => Colors.Gray
             };
         }
 

@@ -25,6 +25,7 @@ or get the [CI build][vsixgallery].
 - **Auto-Reflow** — Automatically wrap comments to your preferred line length
 - **Collapse/Expand** — Hide comment blocks to focus on code, expand when needed
 - **Color-coded Tags** — TODO, HACK, BUG, FIXME, NOTE highlighted in distinct colors
+- **Code Anchors** — Tool window to browse and navigate all comment tags across open files
 - **Clickable Issues** — `#123` links directly to GitHub/GitLab/Azure DevOps issues
 - **Theme-aware** — Works with light and dark Visual Studio themes
 
@@ -187,26 +188,42 @@ Notes:
 - Tokens are separated by spaces, commas, or semicolons.
 - Only `@owner`, `#issue`, and `yyyy-MM-dd` tokens are currently recognized.
 
-#### Tag metadata
+### Code Anchors Tool Window
+**Track all your TODOs, HACKs, and notes in one place.** The Code Anchors tool window provides a centralized view of all comment tags across your open documents.
 
-You can optionally include metadata right after the tag name to make the tooltip more informative.
+Open it via **View > Other Windows > Code Anchors**.
 
-Supported forms:
+![Code Anchors](art/code-anchors.png)
 
-- Owner: `TODO(@mads): Refactor this`
-- Issue reference: `TODO[#1234]: Follow up`
-- Due date (ISO date): `TODO(2026-02-01): Remove workaround`
+#### Features
+- **Live scanning** — Automatically detects anchors in all open documents
+- **Color-coded indicators** — Each anchor type has a colored circle matching its editor highlight color
+- **Quick navigation** — Double-click or press Enter to jump directly to any anchor
+- **Keyboard shortcuts** — Use **Alt+Page Down** / **Alt+Page Up** to navigate between anchors
+- **Built-in search** — Filter anchors by text, with type-specific filters (TODO, HACK, NOTE, etc.)
+- **Group by file** — Organize anchors by their source file for easier navigation
+- **Metadata display** — Shows owner (@user), issue references (#123), and anchor IDs
 
-You can combine multiple tokens inside the same `(...)` or `[...]` section:
+#### Supported Anchor Types
+| Type | Color | Description |
+|------|-------|-------------|
+| TODO | Orange | Tasks to be completed |
+| HACK | Crimson | Temporary workarounds |
+| NOTE | Lime Green | Important notes |
+| BUG | Red | Known bugs |
+| FIXME | Orange Red | Code that needs fixing |
+| UNDONE | Purple | Incomplete work |
+| REVIEW | Dodger Blue | Code needing review |
+| ANCHOR | Cyan | Named navigation points |
 
-- `TODO(@mads, #1234, 2026-02-01): Refactor this`
-- `TODO[@mads #1234 2026-02-01]: Refactor this`
+#### ANCHOR Tags
+Use `ANCHOR(name)` to create named navigation points in your code:
 
-Notes:
+```csharp
+// ANCHOR(database-init): Database initialization logic starts here
+```
 
-- Due dates must be formatted as `yyyy-MM-dd`.
-- Tokens are separated by spaces, commas, or semicolons.
-- Only `@owner`, `#issue`, and `yyyy-MM-dd` tokens are currently recognized.
+These are especially useful for marking important sections you frequently need to return to.
 
 ### Clickable Issue Links
 **Jump to issues instantly.** Issue references like `#123` in comments automatically become clickable links to the issue on your hosting provider. No more copying issue numbers and searching manually. The extension detects the Git remote URL and supports:

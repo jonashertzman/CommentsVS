@@ -55,11 +55,11 @@ namespace CommentsVS.ToolWindows
             }
 
             ITextSnapshot snapshot = buffer.CurrentSnapshot;
-            string fullText = snapshot.GetText();
+            var fullText = snapshot.GetText();
 
             // Fast pre-check: skip if no anchor keywords are present
-            bool hasAnyAnchor = false;
-            foreach (string keyword in _anchorKeywords)
+            var hasAnyAnchor = false;
+            foreach (var keyword in _anchorKeywords)
             {
                 if (fullText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
@@ -74,14 +74,14 @@ namespace CommentsVS.ToolWindows
             }
 
             // Scan each line for anchors
-            for (int lineNumber = 0; lineNumber < snapshot.LineCount; lineNumber++)
+            for (var lineNumber = 0; lineNumber < snapshot.LineCount; lineNumber++)
             {
                 ITextSnapshotLine line = snapshot.GetLineFromLineNumber(lineNumber);
-                string lineText = line.GetText();
+                var lineText = line.GetText();
 
                 // Fast pre-check for this line
-                bool lineHasAnchor = false;
-                foreach (string keyword in _anchorKeywords)
+                var lineHasAnchor = false;
+                foreach (var keyword in _anchorKeywords)
                 {
                     if (lineText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
@@ -157,8 +157,8 @@ namespace CommentsVS.ToolWindows
             }
 
             // Fast pre-check: skip if no anchor keywords are present
-            bool hasAnyAnchor = false;
-            foreach (string keyword in _anchorKeywords)
+            var hasAnyAnchor = false;
+            foreach (var keyword in _anchorKeywords)
             {
                 if (text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
@@ -172,15 +172,15 @@ namespace CommentsVS.ToolWindows
                 return anchors;
             }
 
-            string[] lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
-            for (int lineNumber = 0; lineNumber < lines.Length; lineNumber++)
+            for (var lineNumber = 0; lineNumber < lines.Length; lineNumber++)
             {
-                string lineText = lines[lineNumber];
+                var lineText = lines[lineNumber];
 
                 // Fast pre-check for this line
-                bool lineHasAnchor = false;
-                foreach (string keyword in _anchorKeywords)
+                var lineHasAnchor = false;
+                foreach (var keyword in _anchorKeywords)
                 {
                     if (lineText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
@@ -267,7 +267,7 @@ namespace CommentsVS.ToolWindows
             if (anchor.AnchorType == AnchorType.Anchor)
             {
                 // Strip parentheses/brackets and use as anchor ID
-                string content = anchor.RawMetadata.Trim('(', ')', '[', ']');
+                var content = anchor.RawMetadata.Trim('(', ')', '[', ']');
                 if (!string.IsNullOrWhiteSpace(content) && anchor.Owner == null && anchor.IssueReference == null)
                 {
                     anchor.AnchorId = content;

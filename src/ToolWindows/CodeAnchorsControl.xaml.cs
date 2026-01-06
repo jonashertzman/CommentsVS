@@ -1,13 +1,10 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
-using Microsoft.VisualStudio.Imaging;
-using Microsoft.VisualStudio.Shell;
 
 namespace CommentsVS.ToolWindows
 {
@@ -16,21 +13,17 @@ namespace CommentsVS.ToolWindows
     /// </summary>
     public partial class CodeAnchorsControl : UserControl
     {
-        private readonly ObservableCollection<AnchorItem> _allAnchors = new ObservableCollection<AnchorItem>();
+        private readonly ObservableCollection<AnchorItem> _allAnchors = [];
         private readonly CollectionViewSource _viewSource;
         private string _currentTypeFilter = "All";
         private string _currentSearchFilter = string.Empty;
+        private bool _currentMatchCase;
         private bool _groupByFile;
 
         /// <summary>
         /// Event raised when an anchor is activated (double-click or Enter).
         /// </summary>
         public event EventHandler<AnchorItem> AnchorActivated;
-
-        /// <summary>
-        /// Event raised when refresh is requested.
-        /// </summary>
-        public event EventHandler RefreshRequested;
 
         public CodeAnchorsControl()
         {
@@ -42,6 +35,38 @@ namespace CommentsVS.ToolWindows
 
             // Set up icon binding after data grid is loaded
             AnchorDataGrid.LoadingRow += AnchorDataGrid_LoadingRow;
+        }
+
+        /// <summary>
+        /// Applies a search filter from the VS search box.
+        /// </summary>
+        /// <param name="searchText">The text to search for.</param>
+        /// <param name="typeFilter">Optional type filter (TODO, HACK, etc.).</param>
+        /// <param name="matchCase">Whether to match case.</param>
+        /// <returns>The number of matching results.</returns>
+        public uint ApplySearchFilter(string searchText, string typeFilter, bool matchCase)
+        {
+            _currentSearchFilter = searchText ?? string.Empty;
+            _currentTypeFilter = string.IsNullOrEmpty(typeFilter) ? "All" : typeFilter;
+            _currentMatchCase = matchCase;
+
+            _viewSource.View.Refresh();
+            UpdateStatus();
+
+            return (uint)_viewSource.View.Cast<object>().Count();
+        }
+
+        /// <summary>
+        /// Clears the search filter and shows all anchors.
+        /// </summary>
+        public void ClearSearchFilter()
+        {
+            _currentSearchFilter = string.Empty;
+            _currentTypeFilter = "All";
+            _currentMatchCase = false;
+
+            _viewSource.View.Refresh();
+            UpdateStatus();
         }
 
         /// <summary>
@@ -116,7 +141,7 @@ namespace CommentsVS.ToolWindows
         /// <summary>
         /// Gets all anchors currently in the list.
         /// </summary>
-        public IReadOnlyList<AnchorItem> AllAnchors => _allAnchors.ToList();
+        public IReadOnlyList<AnchorItem> AllAnchors => [.. _allAnchors];
 
         /// <summary>
         /// Selects the next anchor in the list.
@@ -129,8 +154,8 @@ namespace CommentsVS.ToolWindows
                 return null;
             }
 
-            int currentIndex = AnchorDataGrid.SelectedIndex;
-            int nextIndex = currentIndex + 1;
+            var currentIndex = AnchorDataGrid.SelectedIndex;
+            var nextIndex = currentIndex + 1;
 
             if (nextIndex >= AnchorDataGrid.Items.Count)
             {
@@ -154,8 +179,8 @@ namespace CommentsVS.ToolWindows
                 return null;
             }
 
-            int currentIndex = AnchorDataGrid.SelectedIndex;
-            int prevIndex = currentIndex - 1;
+            var currentIndex = AnchorDataGrid.SelectedIndex;
+            var prevIndex = currentIndex - 1;
 
             if (prevIndex < 0)
             {
@@ -170,11 +195,11 @@ namespace CommentsVS.ToolWindows
 
         private void UpdateStatus()
         {
-            int totalCount = _allAnchors.Count;
-            int visibleCount = _viewSource.View.Cast<object>().Count();
+            var totalCount = _allAnchors.Count;
+            var visibleCount = _viewSource.View.Cast<object>().Count();
 
-            bool hasTypeFilter = _currentTypeFilter != "All";
-            bool hasSearchFilter = !string.IsNullOrWhiteSpace(_currentSearchFilter);
+            var hasTypeFilter = _currentTypeFilter != "All";
+            var hasSearchFilter = !string.IsNullOrWhiteSpace(_currentSearchFilter);
 
             if (!hasTypeFilter && !hasSearchFilter)
             {
@@ -200,11 +225,11 @@ namespace CommentsVS.ToolWindows
             if (e.Item is AnchorItem anchor)
             {
                 // Check type filter
-                bool passesTypeFilter = _currentTypeFilter == "All" ||
+                var passesTypeFilter = _currentTypeFilter == "All" ||
                     anchor.TypeDisplayName.Equals(_currentTypeFilter, StringComparison.OrdinalIgnoreCase);
 
                 // Check search filter
-                bool passesSearchFilter = string.IsNullOrWhiteSpace(_currentSearchFilter) ||
+                var passesSearchFilter = string.IsNullOrWhiteSpace(_currentSearchFilter) ||
                     MatchesSearch(anchor, _currentSearchFilter);
 
                 e.Accepted = passesTypeFilter && passesSearchFilter;
@@ -213,60 +238,37 @@ namespace CommentsVS.ToolWindows
 
         private bool MatchesSearch(AnchorItem anchor, string searchText)
         {
-            // Search in message, file name, project name, and metadata (case-insensitive)
-            return (anchor.Message != null && anchor.Message.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                   (anchor.FileName != null && anchor.FileName.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                   (anchor.Project != null && anchor.Project.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                   (anchor.Owner != null && anchor.Owner.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                   (anchor.IssueReference != null && anchor.IssueReference.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                   (anchor.AnchorId != null && anchor.AnchorId.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                   (anchor.MetadataDisplay != null && anchor.MetadataDisplay.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0);
+            // Determine comparison type based on match case setting
+            StringComparison comparison = _currentMatchCase
+                ? StringComparison.Ordinal
+                : StringComparison.OrdinalIgnoreCase;
+
+            // Search in message, file name, project name, and metadata
+            return (anchor.Message != null && anchor.Message.IndexOf(searchText, comparison) >= 0) ||
+                   (anchor.FileName != null && anchor.FileName.IndexOf(searchText, comparison) >= 0) ||
+                   (anchor.Project != null && anchor.Project.IndexOf(searchText, comparison) >= 0) ||
+                   (anchor.Owner != null && anchor.Owner.IndexOf(searchText, comparison) >= 0) ||
+                   (anchor.IssueReference != null && anchor.IssueReference.IndexOf(searchText, comparison) >= 0) ||
+                   (anchor.AnchorId != null && anchor.AnchorId.IndexOf(searchText, comparison) >= 0) ||
+                   (anchor.MetadataDisplay != null && anchor.MetadataDisplay.IndexOf(searchText, comparison) >= 0);
         }
 
-        private void RefreshButton_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// Gets a value indicating whether group by file is enabled.
+        /// </summary>
+        public bool IsGroupByFileEnabled => _groupByFile;
+
+        /// <summary>
+        /// Toggles the group by file setting.
+        /// </summary>
+        public void ToggleGroupByFile()
         {
-            RefreshRequested?.Invoke(this, EventArgs.Empty);
+            _groupByFile = !_groupByFile;
+            ApplyGrouping();
         }
 
-        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        private void ApplyGrouping()
         {
-            // Guard against event firing during InitializeComponent before _viewSource is initialized
-            if (_viewSource == null)
-            {
-                return;
-            }
-
-            _currentSearchFilter = SearchTextBox.Text ?? string.Empty;
-            _viewSource.View.Refresh();
-            UpdateStatus();
-        }
-
-        private void FilterComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-        {
-            // Guard against event firing during InitializeComponent before _viewSource is initialized
-            if (_viewSource == null)
-            {
-                return;
-            }
-
-            if (FilterComboBox.SelectedItem is ComboBoxItem item)
-            {
-                _currentTypeFilter = item.Content.ToString();
-                _viewSource.View.Refresh();
-                UpdateStatus();
-            }
-        }
-
-        private void GroupByFileCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            // Guard against event firing during InitializeComponent before _viewSource is initialized
-            if (_viewSource == null)
-            {
-                return;
-            }
-
-            _groupByFile = GroupByFileCheckBox.IsChecked ?? false;
-
             _viewSource.View.GroupDescriptions.Clear();
 
             if (_groupByFile)
@@ -301,14 +303,14 @@ namespace CommentsVS.ToolWindows
         {
             if (e.Row.Item is AnchorItem anchor)
             {
-                // Find the CrispImage in the row and set its moniker
+                // Find the Ellipse in the row and set its fill color
                 DataGridRow row = e.Row;
                 row.Loaded += (s, args) =>
                 {
-                    CrispImage image = FindVisualChild<CrispImage>(row);
-                    if (image != null)
+                    System.Windows.Shapes.Ellipse ellipse = FindVisualChild<System.Windows.Shapes.Ellipse>(row);
+                    if (ellipse != null)
                     {
-                        image.Moniker = anchor.AnchorType.GetImageMoniker();
+                        ellipse.Fill = new System.Windows.Media.SolidColorBrush(anchor.AnchorType.GetColor());
                     }
                 };
             }
@@ -316,7 +318,7 @@ namespace CommentsVS.ToolWindows
 
         private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
         {
-            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+            for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
             {
                 DependencyObject child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
                 if (child is T found)

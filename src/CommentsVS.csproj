@@ -53,10 +53,12 @@
     <Compile Include="Commands\NextAnchorCommand.cs" />
     <Compile Include="Commands\OpenSettingsCommand.cs" />
     <Compile Include="Commands\PreviousAnchorCommand.cs" />
+    <Compile Include="Commands\RefreshAnchorsCommand.cs" />
     <Compile Include="Commands\SetRenderingModeCommand.cs" />
     <Compile Include="Commands\ShowCodeAnchorsCommand.cs" />
     <Compile Include="Commands\ToggleCollapseByDefaultCommand.cs" />
     <Compile Include="Commands\ToggleCommentVisibilityCommand.cs" />
+    <Compile Include="Commands\ToggleGroupByFileCommand.cs" />
     <Compile Include="Handlers\EscapeKeyHandler.cs" />
     <Compile Include="Handlers\FormatDocumentHandler.cs" />
     <Compile Include="Handlers\IssueReferenceClickHandler.cs" />

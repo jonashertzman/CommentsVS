@@ -28,6 +28,8 @@ namespace CommentsVS
         public const int CommentsToggleGroup = 0x0005;
         public const int CommentsRenderingGroup = 0x0006;
         public const int CommentsSettingsGroup = 0x0007;
+        public const int CodeAnchorsToolbar = 0x0008;
+        public const int CodeAnchorsToolbarGroup = 0x0009;
         public const int ToggleCommentVisibility = 0x0200;
         public const int ToggleCollapseByDefault = 0x0202;
         public const int SetRenderingModeOff = 0x0203;
@@ -37,5 +39,7 @@ namespace CommentsVS
         public const int ShowCodeAnchors = 0x0207;
         public const int NextAnchor = 0x0208;
         public const int PreviousAnchor = 0x0209;
+        public const int RefreshAnchors = 0x020A;
+        public const int ToggleGroupByFile = 0x020B;
     }
 }

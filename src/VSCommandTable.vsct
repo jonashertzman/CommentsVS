@@ -1,45 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
-  <Extern href="stdidcmd.h"/>
-  <Extern href="vsshlids.h"/>
-  <Include href="KnownImageIds.vsct"/>
-  <Include href="VSGlobals.vsct"/>
+<Extern href="stdidcmd.h"/>
+<Extern href="vsshlids.h"/>
+<Include href="KnownImageIds.vsct"/>
+<Include href="VSGlobals.vsct"/>
 
-  <Commands package="CommentsVS">
-    <Menus>
-      <!-- Submenu flyout for Comments settings -->
-      <Menu guid="CommentsVS" id="CommentsSubMenu" priority="0x0100" type="Menu">
-        <Parent guid="CommentsVS" id="CommentsSubMenuGroup"/>
-        <Strings>
-          <ButtonText>Comments</ButtonText>
-          <CommandName>Comments</CommandName>
-          <CanonicalName>.CommentsVS.Comments</CanonicalName>
-        </Strings>
-      </Menu>
-    </Menus>
+<Commands package="CommentsVS">
+  <Menus>
+    <!-- Submenu flyout for Comments settings -->
+    <Menu guid="CommentsVS" id="CommentsSubMenu" priority="0x0100" type="Menu">
+      <Parent guid="CommentsVS" id="CommentsSubMenuGroup"/>
+      <Strings>
+        <ButtonText>Comments</ButtonText>
+        <CommandName>Comments</CommandName>
+        <CanonicalName>.CommentsVS.Comments</CanonicalName>
+      </Strings>
+    </Menu>
+    <!-- Code Anchors Tool Window Toolbar -->
+    <Menu guid="CommentsVS" id="CodeAnchorsToolbar" type="ToolWindowToolbar">
+      <Strings>
+        <ButtonText>Code Anchors Toolbar</ButtonText>
+      </Strings>
+    </Menu>
+  </Menus>
 
-    <Groups>
-      <Group guid="CommentsVS" id="ToolbarGroup" priority="0x0600">
-        <Parent guid="guidSHLMainMenu" id="IDM_VS_TOOL_STANDARD"/>
-      </Group>
-      <!-- Group containing the submenu - placed in context menus -->
-      <Group guid="CommentsVS" id="CommentsSubMenuGroup" priority="0x0600">
-        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN"/>
-      </Group>
-      <!-- Group for toggle commands inside submenu -->
-      <Group guid="CommentsVS" id="CommentsToggleGroup" priority="0x0100">
-        <Parent guid="CommentsVS" id="CommentsSubMenu"/>
-      </Group>
-      <!-- Group for rendering mode commands inside submenu -->
-      <Group guid="CommentsVS" id="CommentsRenderingGroup" priority="0x0200">
-        <Parent guid="CommentsVS" id="CommentsSubMenu"/>
-      </Group>
-      <!-- Group for settings command inside submenu -->
-      <Group guid="CommentsVS" id="CommentsSettingsGroup" priority="0x0300">
-        <Parent guid="CommentsVS" id="CommentsSubMenu"/>
-      </Group>
-    </Groups>
+  <Groups>
+    <Group guid="CommentsVS" id="ToolbarGroup" priority="0x0600">
+      <Parent guid="guidSHLMainMenu" id="IDM_VS_TOOL_STANDARD"/>
+    </Group>
+    <!-- Group containing the submenu - placed in context menus -->
+    <Group guid="CommentsVS" id="CommentsSubMenuGroup" priority="0x0600">
+      <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN"/>
+    </Group>
+    <!-- Group for toggle commands inside submenu -->
+    <Group guid="CommentsVS" id="CommentsToggleGroup" priority="0x0100">
+      <Parent guid="CommentsVS" id="CommentsSubMenu"/>
+    </Group>
+    <!-- Group for rendering mode commands inside submenu -->
+    <Group guid="CommentsVS" id="CommentsRenderingGroup" priority="0x0200">
+      <Parent guid="CommentsVS" id="CommentsSubMenu"/>
+    </Group>
+    <!-- Group for settings command inside submenu -->
+    <Group guid="CommentsVS" id="CommentsSettingsGroup" priority="0x0300">
+      <Parent guid="CommentsVS" id="CommentsSubMenu"/>
+    </Group>
+    <!-- Code Anchors toolbar button group -->
+    <Group guid="CommentsVS" id="CodeAnchorsToolbarGroup" priority="0x0000">
+      <Parent guid="CommentsVS" id="CodeAnchorsToolbar"/>
+    </Group>
+  </Groups>
 
     <Buttons>
       <!-- Toggle XML Comment Visibility -->
@@ -138,6 +148,31 @@
           <LocCanonicalName>.CommentsVS.PreviousAnchor</LocCanonicalName>
         </Strings>
       </Button>
+      <!-- Refresh Anchors (toolbar button) -->
+      <Button guid="CommentsVS" id="RefreshAnchors" priority="0x0100" type="Button">
+        <Parent guid="CommentsVS" id="CodeAnchorsToolbarGroup"/>
+        <Icon guid="ImageCatalogGuid" id="Refresh" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
+        <Strings>
+          <ButtonText>Refresh</ButtonText>
+          <CanonicalName>.CommentsVS.RefreshAnchors</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RefreshAnchors</LocCanonicalName>
+        </Strings>
+      </Button>
+      <!-- Toggle Group by File (toolbar button) -->
+      <Button guid="CommentsVS" id="ToggleGroupByFile" priority="0x0200" type="Button">
+        <Parent guid="CommentsVS" id="CodeAnchorsToolbarGroup"/>
+        <Icon guid="ImageCatalogGuid" id="GroupByType" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
+        <Strings>
+          <ButtonText>Group by File</ButtonText>
+          <CanonicalName>.CommentsVS.ToggleGroupByFile</CanonicalName>
+          <LocCanonicalName>.CommentsVS.ToggleGroupByFile</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -165,6 +200,8 @@
       <IDSymbol name="CommentsToggleGroup" value="0x0005" />
       <IDSymbol name="CommentsRenderingGroup" value="0x0006" />
       <IDSymbol name="CommentsSettingsGroup" value="0x0007" />
+      <IDSymbol name="CodeAnchorsToolbar" value="0x0008" />
+      <IDSymbol name="CodeAnchorsToolbarGroup" value="0x0009" />
       <IDSymbol name="ToggleCommentVisibility" value="0x0200" />
       <IDSymbol name="ToggleCollapseByDefault" value="0x0202" />
       <IDSymbol name="SetRenderingModeOff" value="0x0203" />
@@ -174,6 +211,8 @@
       <IDSymbol name="ShowCodeAnchors" value="0x0207" />
       <IDSymbol name="NextAnchor" value="0x0208" />
       <IDSymbol name="PreviousAnchor" value="0x0209" />
+      <IDSymbol name="RefreshAnchors" value="0x020A" />
+      <IDSymbol name="ToggleGroupByFile" value="0x020B" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>
