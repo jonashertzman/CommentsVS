@@ -10,7 +10,9 @@ using System.Windows.Media;
 using CommentsVS.Commands;
 using CommentsVS.Options;
 using CommentsVS.Services;
+using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text.Adornments;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Utilities;
@@ -834,8 +836,30 @@ namespace CommentsVS.Adornments
 
         private static object CreateTooltip(XmlDocCommentBlock block)
         {
-            // Show the raw XML content as tooltip
-            return block.XmlContent;
+            // Create a WPF-based tooltip with VS theme colors
+            var lines = block.XmlContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+            var panel = new StackPanel();
+
+            foreach (var line in lines)
+            {
+                var textBlock = new TextBlock
+                {
+                    Text = line,
+                    TextWrapping = TextWrapping.NoWrap
+                };
+                textBlock.SetResourceReference(TextBlock.ForegroundProperty, Microsoft.VisualStudio.PlatformUI.EnvironmentColors.ToolTipTextBrushKey);
+                panel.Children.Add(textBlock);
+            }
+
+            var tooltip = new ToolTip
+            {
+                Content = panel
+            };
+            tooltip.SetResourceReference(Control.BackgroundProperty, Microsoft.VisualStudio.PlatformUI.EnvironmentColors.ToolTipBrushKey);
+            tooltip.SetResourceReference(Control.BorderBrushProperty, Microsoft.VisualStudio.PlatformUI.EnvironmentColors.ToolTipBorderBrushKey);
+
+            return tooltip;
         }
 
         protected override bool UpdateAdornment(FrameworkElement adornment, XmlDocCommentBlock data)

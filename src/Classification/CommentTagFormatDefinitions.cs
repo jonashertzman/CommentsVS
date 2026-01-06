@@ -158,7 +158,8 @@ namespace CommentsVS.Classification
         public CommentTagMetadataFormatDefinition()
         {
             DisplayName = "Comment Tag - Metadata";
-            ForegroundColor = Color.FromRgb(115, 115, 115);
+            // Teal/cyan works well in both light and dark themes
+            ForegroundColor = Color.FromRgb(0, 128, 128);
         }
     }
 }
