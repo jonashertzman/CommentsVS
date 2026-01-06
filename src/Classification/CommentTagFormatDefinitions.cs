@@ -37,6 +37,10 @@ namespace CommentsVS.Classification
         [Export(typeof(ClassificationTypeDefinition))]
         [Name(CommentTagClassificationTypes.Review)]
         internal static ClassificationTypeDefinition ReviewType = null;
+
+        [Export(typeof(ClassificationTypeDefinition))]
+        [Name(CommentTagClassificationTypes.Metadata)]
+        internal static ClassificationTypeDefinition MetadataType = null;
     }
 
     [Export(typeof(EditorFormatDefinition))]
@@ -141,6 +145,20 @@ namespace CommentsVS.Classification
             DisplayName = "Comment Tag - REVIEW";
             ForegroundColor = Colors.DodgerBlue;
             IsBold = true;
+        }
+    }
+
+    [Export(typeof(EditorFormatDefinition))]
+    [ClassificationType(ClassificationTypeNames = CommentTagClassificationTypes.Metadata)]
+    [Name(CommentTagClassificationTypes.Metadata)]
+    [UserVisible(true)]
+    [Order(After = Priority.High)]
+    internal sealed class CommentTagMetadataFormatDefinition : ClassificationFormatDefinition
+    {
+        public CommentTagMetadataFormatDefinition()
+        {
+            DisplayName = "Comment Tag - Metadata";
+            ForegroundColor = Colors.DarkGray;
         }
     }
 }

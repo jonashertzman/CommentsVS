@@ -31,11 +31,17 @@ namespace CommentsVS.Classification
         private readonly ITextBuffer _buffer;
         private readonly IClassificationTypeRegistryService _registry;
 
+        private readonly IClassificationType _metadataType;
+
         // Regex to match comment tags - looks for tag keywords after comment prefixes
         private static readonly Regex TagRegex = new(
             @"(?<=//.*)(?<tag>\b(?:TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW)\b:?)|" +
             @"(?<=/\*.*)(?<tag>\b(?:TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW)\b:?)|" +
             @"(?<='.*)(?<tag>\b(?:TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW)\b:?)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex TagWithMetadataRegex = new(
+            @"\b(?:TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW)\b(?<metadata>\s*(?:\([^)]*\)|\[[^\]]*\]))",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         public event EventHandler<ClassificationChangedEventArgs> ClassificationChanged;
@@ -44,6 +50,7 @@ namespace CommentsVS.Classification
         {
             _buffer = buffer;
             _registry = registry;
+            _metadataType = _registry.GetClassificationType(CommentTagClassificationTypes.Metadata);
             _buffer.Changed += OnBufferChanged;
         }
 
@@ -85,6 +92,22 @@ namespace CommentsVS.Classification
                     var tagSpan = new SnapshotSpan(span.Snapshot, lineStart + tagGroup.Index, tagGroup.Length);
                     result.Add(new ClassificationSpan(tagSpan, classificationType));
                 }
+
+                if (_metadataType != null)
+                {
+                    // Classify the optional metadata right after the tag.
+                    // Examples: TODO(@mads): ...  TODO[#123]: ...
+                    var metaMatch = TagWithMetadataRegex.Match(text, tagGroup.Index);
+                    if (metaMatch.Success && metaMatch.Index == tagGroup.Index)
+                    {
+                        Group metaGroup = metaMatch.Groups["metadata"];
+                        if (metaGroup.Success && metaGroup.Length > 0)
+                        {
+                            var metaSpan = new SnapshotSpan(span.Snapshot, lineStart + metaGroup.Index, metaGroup.Length);
+                            result.Add(new ClassificationSpan(metaSpan, _metadataType));
+                        }
+                    }
+                }
             }
 
             return result;
@@ -120,5 +143,7 @@ namespace CommentsVS.Classification
         public const string Fixme = "CommentTag.FIXME";
         public const string Undone = "CommentTag.UNDONE";
         public const string Review = "CommentTag.REVIEW";
+
+        public const string Metadata = "CommentTag.Metadata";
     }
 }
