@@ -33,10 +33,11 @@ namespace CommentsVS.Tagging
     /// <summary>
     /// Creates classification tags for LINK anchors in comments to render them with underline styling.
     /// </summary>
-    internal sealed class LinkAnchorTagger : ITagger<IClassificationTag>
+    internal sealed class LinkAnchorTagger : ITagger<IClassificationTag>, IDisposable
     {
         private readonly ITextBuffer _buffer;
         private readonly IClassificationType _linkClassificationType;
+        private bool _disposed;
 
         /// <summary>
         /// Maximum file size (in characters) to process. Files larger than this are skipped for performance.
@@ -105,6 +106,17 @@ namespace CommentsVS.Tagging
                     yield return new TagSpan<IClassificationTag>(tagSpan, new ClassificationTag(_linkClassificationType));
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _buffer.Changed -= OnBufferChanged;
         }
     }
 

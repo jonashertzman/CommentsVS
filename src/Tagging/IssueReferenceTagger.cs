@@ -33,12 +33,13 @@ namespace CommentsVS.Tagging
     /// <summary>
     /// Creates clickable links for issue references like #123 in comments.
     /// </summary>
-    internal sealed class IssueReferenceTagger : ITagger<IUrlTag>
+    internal sealed class IssueReferenceTagger : ITagger<IUrlTag>, IDisposable
     {
         private readonly ITextBuffer _buffer;
         private GitRepositoryInfo _repoInfo;
         private bool _repoInfoInitialized;
         private string _filePath;
+        private bool _disposed;
 
         /// <summary>
         /// Maximum file size (in characters) to process. Files larger than this are skipped for performance.
@@ -246,6 +247,17 @@ namespace CommentsVS.Tagging
                 TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
                     new SnapshotSpan(snapshot, 0, snapshot.Length)));
             }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _buffer.Changed -= OnBufferChanged;
         }
     }
 }

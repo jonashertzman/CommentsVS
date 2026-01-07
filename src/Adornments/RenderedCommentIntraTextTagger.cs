@@ -93,6 +93,23 @@ namespace CommentsVS.Adornments
             view.Properties[typeof(RenderedCommentIntraTextTagger)] = this;
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                SetRenderingModeHelper.RenderedCommentsStateChanged -= OnRenderedStateChanged;
+                view.Caret.PositionChanged -= OnCaretPositionChanged;
+                view.TextBuffer.Changed -= OnBufferChanged;
+                view.ZoomLevelChanged -= OnZoomLevelChanged;
+                view.VisualElement.PreviewKeyDown -= OnViewKeyDown;
+
+                // Remove from view properties
+                view.Properties.RemoveProperty(typeof(RenderedCommentIntraTextTagger));
+            }
+
+            base.Dispose(disposing);
+        }
+
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
             // Track which lines were edited so we can suppress rendering for new/modified comments

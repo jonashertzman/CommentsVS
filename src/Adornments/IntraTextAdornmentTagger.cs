@@ -14,13 +14,14 @@ namespace CommentsVS.Adornments
     /// Helper class for interspersing adornments into text, replacing (eliding) the original text.
     /// </summary>
     internal abstract class IntraTextAdornmentTagger<TData, TAdornment>
-        : ITagger<IntraTextAdornmentTag>
+        : ITagger<IntraTextAdornmentTag>, IDisposable
         where TAdornment : UIElement
     {
         protected readonly IWpfTextView view;
         private Dictionary<SnapshotSpan, TAdornment> _adornmentCache = [];
         protected ITextSnapshot snapshot { get; private set; }
         private readonly List<SnapshotSpan> _invalidatedSpans = [];
+        private bool _disposed;
 
         protected IntraTextAdornmentTagger(IWpfTextView view)
         {
@@ -29,6 +30,12 @@ namespace CommentsVS.Adornments
 
             this.view.LayoutChanged += HandleLayoutChanged;
             this.view.TextBuffer.Changed += HandleBufferChanged;
+            this.view.Closed += OnViewClosed;
+        }
+
+        private void OnViewClosed(object sender, EventArgs e)
+        {
+            Dispose();
         }
 
         protected abstract TAdornment CreateAdornment(TData data, SnapshotSpan span);
@@ -220,6 +227,30 @@ namespace CommentsVS.Adornments
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+
+            if (disposing)
+            {
+                view.LayoutChanged -= HandleLayoutChanged;
+                view.TextBuffer.Changed -= HandleBufferChanged;
+                view.Closed -= OnViewClosed;
+                _adornmentCache.Clear();
+            }
+        }
 
         private class Comparer : IEqualityComparer<Tuple<SnapshotSpan, PositionAffinity?, TData>>
         {

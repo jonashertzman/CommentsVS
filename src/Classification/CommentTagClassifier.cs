@@ -10,12 +10,13 @@ namespace CommentsVS.Classification
     /// <summary>
     /// Classifies comment tags (TODO, HACK, NOTE, etc.) for syntax highlighting.
     /// </summary>
-    internal sealed class CommentTagClassifier : IClassifier
+    internal sealed class CommentTagClassifier : IClassifier, IDisposable
     {
         private readonly ITextBuffer _buffer;
         private readonly IClassificationTypeRegistryService _registry;
 
         private readonly IClassificationType _metadataType;
+        private bool _disposed;
 
         /// <summary>
         /// Maximum file size (in characters) to process. Files larger than this are skipped for performance.
@@ -145,6 +146,17 @@ namespace CommentsVS.Classification
             };
 
             return typeName != null ? _registry.GetClassificationType(typeName) : null;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _buffer.Changed -= OnBufferChanged;
         }
     }
 }
