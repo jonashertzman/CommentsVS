@@ -115,7 +115,7 @@ namespace CommentsVS.Services
         /// <summary>
         /// Fast pre-check keyword to avoid regex on lines without LINK.
         /// </summary>
-        private const string LinkKeyword = "LINK";
+        private const string _linkKeyword = "LINK";
 
         /// <summary>
         /// Parses all LINK references in the given text.
@@ -132,7 +132,7 @@ namespace CommentsVS.Services
             }
 
             // Fast pre-check: skip regex if LINK keyword is not present
-            if (text.IndexOf(LinkKeyword, StringComparison.OrdinalIgnoreCase) < 0)
+            if (text.IndexOf(_linkKeyword, StringComparison.OrdinalIgnoreCase) < 0)
             {
                 return results;
             }
@@ -148,7 +148,7 @@ namespace CommentsVS.Services
 
                 // Calculate target position (excludes "LINK:" prefix)
                 Group prefixGroup = match.Groups["prefix"];
-                int prefixLength = prefixGroup.Success ? prefixGroup.Length : 0;
+                var prefixLength = prefixGroup.Success ? prefixGroup.Length : 0;
                 info.TargetStartIndex = match.Index + prefixLength;
                 info.TargetLength = match.Length - prefixLength;
 
@@ -170,13 +170,13 @@ namespace CommentsVS.Services
                     }
 
                     Group lineGroup = match.Groups["line"];
-                    if (lineGroup.Success && int.TryParse(lineGroup.Value, out int line))
+                    if (lineGroup.Success && int.TryParse(lineGroup.Value, out var line))
                     {
                         info.LineNumber = line;
                     }
 
                     Group endLineGroup = match.Groups["endline"];
-                    if (endLineGroup.Success && int.TryParse(endLineGroup.Value, out int endLine))
+                    if (endLineGroup.Success && int.TryParse(endLineGroup.Value, out var endLine))
                     {
                         info.EndLineNumber = endLine;
                     }
@@ -206,7 +206,7 @@ namespace CommentsVS.Services
                 return false;
             }
 
-            return text.IndexOf(LinkKeyword, StringComparison.OrdinalIgnoreCase) >= 0
+            return text.IndexOf(_linkKeyword, StringComparison.OrdinalIgnoreCase) >= 0
                    && _linkRegex.IsMatch(text);
         }
 

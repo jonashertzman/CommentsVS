@@ -1,6 +1,5 @@
 using System.IO;
 using Microsoft.VisualStudio;
-using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 
 namespace CommentsVS.Services
@@ -17,24 +16,14 @@ namespace CommentsVS.Services
     /// <item>Plain paths - resolved from current file location</item>
     /// </list>
     /// </remarks>
-    public class FilePathResolver
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="FilePathResolver"/> class.
+    /// </remarks>
+    /// <param name="currentFilePath">The full path of the current file.</param>
+    /// <param name="solutionDirectory">The solution directory (optional).</param>
+    /// <param name="projectDirectory">The project directory (optional).</param>
+    public class FilePathResolver(string currentFilePath, string solutionDirectory = null, string projectDirectory = null)
     {
-        private readonly string _currentFilePath;
-        private readonly string _solutionDirectory;
-        private readonly string _projectDirectory;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FilePathResolver"/> class.
-        /// </summary>
-        /// <param name="currentFilePath">The full path of the current file.</param>
-        /// <param name="solutionDirectory">The solution directory (optional).</param>
-        /// <param name="projectDirectory">The project directory (optional).</param>
-        public FilePathResolver(string currentFilePath, string solutionDirectory = null, string projectDirectory = null)
-        {
-            _currentFilePath = currentFilePath;
-            _solutionDirectory = solutionDirectory;
-            _projectDirectory = projectDirectory;
-        }
 
         /// <summary>
         /// Creates a FilePathResolver for the given file path, automatically detecting solution and project directories.
@@ -69,7 +58,7 @@ namespace CommentsVS.Services
             }
 
             // Normalize path separators
-            string normalizedPath = linkPath.Replace('/', Path.DirectorySeparatorChar);
+            var normalizedPath = linkPath.Replace('/', Path.DirectorySeparatorChar);
 
             string basePath;
             string relativePath;
@@ -78,25 +67,25 @@ namespace CommentsVS.Services
             if (normalizedPath.StartsWith("~/") || normalizedPath.StartsWith("~\\"))
             {
                 // Solution-relative (~/path)
-                basePath = _solutionDirectory;
+                basePath = solutionDirectory;
                 relativePath = normalizedPath.Substring(2);
             }
             else if (normalizedPath.StartsWith("/") || normalizedPath.StartsWith("\\"))
             {
                 // Solution-relative (/path)
-                basePath = _solutionDirectory;
+                basePath = solutionDirectory;
                 relativePath = normalizedPath.Substring(1);
             }
             else if (normalizedPath.StartsWith("@/") || normalizedPath.StartsWith("@\\"))
             {
                 // Project-relative (@/path)
-                basePath = _projectDirectory;
+                basePath = projectDirectory;
                 relativePath = normalizedPath.Substring(2);
             }
             else
             {
                 // Relative to current file (including ./ and ../)
-                basePath = Path.GetDirectoryName(_currentFilePath);
+                basePath = Path.GetDirectoryName(currentFilePath);
                 relativePath = normalizedPath;
             }
 
@@ -107,7 +96,7 @@ namespace CommentsVS.Services
 
             try
             {
-                string combinedPath = Path.Combine(basePath, relativePath);
+                var combinedPath = Path.Combine(basePath, relativePath);
                 return Path.GetFullPath(combinedPath);
             }
             catch
@@ -147,7 +136,7 @@ namespace CommentsVS.Services
 
             if (ServiceProvider.GlobalProvider.GetService(typeof(SVsSolution)) is IVsSolution solution)
             {
-                solution.GetSolutionInfo(out string solutionDir, out _, out _);
+                solution.GetSolutionInfo(out var solutionDir, out _, out _);
                 return solutionDir;
             }
 
@@ -172,16 +161,16 @@ namespace CommentsVS.Services
                 solution.GetProjectOfUniqueName(filePath, out IVsHierarchy hierarchy);
                 if (hierarchy != null)
                 {
-                    hierarchy.GetProperty((uint)VSConstants.VSITEMID.Root, (int)__VSHPROPID.VSHPROPID_ProjectDir, out object projectDirObj);
+                    hierarchy.GetProperty((uint)VSConstants.VSITEMID.Root, (int)__VSHPROPID.VSHPROPID_ProjectDir, out var projectDirObj);
                     return projectDirObj as string;
                 }
             }
 
             // Fallback: walk up directory tree looking for .csproj/.vbproj
-            string dir = Path.GetDirectoryName(filePath);
+            var dir = Path.GetDirectoryName(filePath);
             while (!string.IsNullOrEmpty(dir))
             {
-                string[] projectFiles = Directory.GetFiles(dir, "*.csproj");
+                var projectFiles = Directory.GetFiles(dir, "*.csproj");
                 if (projectFiles.Length > 0)
                 {
                     return dir;
@@ -202,16 +191,16 @@ namespace CommentsVS.Services
         /// <summary>
         /// Gets the current file's directory.
         /// </summary>
-        public string CurrentFileDirectory => Path.GetDirectoryName(_currentFilePath);
+        public string CurrentFileDirectory => Path.GetDirectoryName(currentFilePath);
 
         /// <summary>
         /// Gets the solution directory.
         /// </summary>
-        public string SolutionDirectory => _solutionDirectory;
+        public string SolutionDirectory => solutionDirectory;
 
         /// <summary>
         /// Gets the project directory.
         /// </summary>
-        public string ProjectDirectory => _projectDirectory;
+        public string ProjectDirectory => projectDirectory;
     }
 }

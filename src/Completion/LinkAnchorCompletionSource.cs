@@ -33,9 +33,8 @@ namespace CommentsVS.Completion
     /// <summary>
     /// Provides IntelliSense completions for LINK anchors, including file paths and anchor names.
     /// </summary>
-    internal sealed class LinkAnchorCompletionSource : IAsyncCompletionSource
+    internal sealed class LinkAnchorCompletionSource(ITextView textView) : IAsyncCompletionSource
     {
-        private readonly ITextView _textView;
         private string _currentFilePath;
         private string _currentDirectory;
         private bool _initialized;
@@ -43,11 +42,6 @@ namespace CommentsVS.Completion
         private static readonly ImageElement _fileIcon = new(KnownMonikers.Document.ToImageId(), "File");
         private static readonly ImageElement _folderIcon = new(KnownMonikers.FolderClosed.ToImageId(), "Folder");
         private static readonly ImageElement _anchorIcon = new(KnownMonikers.Bookmark.ToImageId(), "Anchor");
-
-        public LinkAnchorCompletionSource(ITextView textView)
-        {
-            _textView = textView;
-        }
 
         public CompletionStartData InitializeCompletion(CompletionTrigger trigger, SnapshotPoint triggerLocation, CancellationToken token)
         {
@@ -58,7 +52,7 @@ namespace CommentsVS.Completion
             }
 
             ITextSnapshotLine line = triggerLocation.GetContainingLine();
-            string lineText = line.GetText();
+            var lineText = line.GetText();
 
             // Only provide completions in comments
             if (!LanguageCommentStyle.IsCommentLine(lineText))
@@ -67,31 +61,31 @@ namespace CommentsVS.Completion
             }
 
             // Check if we're in a LINK context
-            int positionInLine = triggerLocation.Position - line.Start.Position;
-            string textBeforeCursor = lineText.Substring(0, positionInLine);
+            var positionInLine = triggerLocation.Position - line.Start.Position;
+            var textBeforeCursor = lineText.Substring(0, positionInLine);
 
             // Look for "LINK:" or "LINK " pattern before cursor
-            int linkIndex = textBeforeCursor.LastIndexOf("LINK", System.StringComparison.OrdinalIgnoreCase);
+            var linkIndex = textBeforeCursor.LastIndexOf("LINK", System.StringComparison.OrdinalIgnoreCase);
             if (linkIndex < 0)
             {
                 return CompletionStartData.DoesNotParticipateInCompletion;
             }
 
             // Check if there's a colon or space after LINK
-            int afterLink = linkIndex + 4;
+            var afterLink = linkIndex + 4;
             if (afterLink >= textBeforeCursor.Length)
             {
                 return CompletionStartData.DoesNotParticipateInCompletion;
             }
 
-            string afterLinkText = textBeforeCursor.Substring(afterLink).TrimStart();
+            var afterLinkText = textBeforeCursor.Substring(afterLink).TrimStart();
             if (string.IsNullOrEmpty(afterLinkText) && textBeforeCursor[afterLink] != ':' && textBeforeCursor[afterLink] != ' ')
             {
                 return CompletionStartData.DoesNotParticipateInCompletion;
             }
 
             // Determine the applicable span (from after LINK: to cursor)
-            int startPos = afterLink;
+            var startPos = afterLink;
             while (startPos < textBeforeCursor.Length && (textBeforeCursor[startPos] == ':' || textBeforeCursor[startPos] == ' '))
             {
                 startPos++;
@@ -108,7 +102,7 @@ namespace CommentsVS.Completion
             SnapshotSpan applicableToSpan,
             CancellationToken token)
         {
-            string currentText = applicableToSpan.GetText();
+            var currentText = applicableToSpan.GetText();
             var items = new List<CompletionItem>();
 
             // If starting with #, provide anchor completions
@@ -143,8 +137,8 @@ namespace CommentsVS.Completion
                 yield break;
             }
 
-            string searchDirectory = _currentDirectory;
-            string prefix = "";
+            var searchDirectory = _currentDirectory;
+            var prefix = "";
 
             // Handle relative path prefixes
             if (partialPath.StartsWith("./") || partialPath.StartsWith(".\\"))
@@ -160,10 +154,10 @@ namespace CommentsVS.Completion
             }
 
             // If there's a path separator in the partial path, navigate to that directory
-            int lastSep = partialPath.LastIndexOfAny(new[] { '/', '\\' });
+            var lastSep = partialPath.LastIndexOfAny(['/', '\\']);
             if (lastSep >= 0)
             {
-                string subDir = partialPath.Substring(0, lastSep);
+                var subDir = partialPath.Substring(0, lastSep);
                 partialPath = partialPath.Substring(lastSep + 1);
                 searchDirectory = Path.Combine(searchDirectory, subDir);
                 prefix += subDir + "/";
@@ -175,9 +169,9 @@ namespace CommentsVS.Completion
             }
 
             // List directories
-            foreach (string dir in SafeGetDirectories(searchDirectory))
+            foreach (var dir in SafeGetDirectories(searchDirectory))
             {
-                string dirName = Path.GetFileName(dir);
+                var dirName = Path.GetFileName(dir);
                 if (ShouldSkipFolder(dirName))
                 {
                     continue;
@@ -200,9 +194,9 @@ namespace CommentsVS.Completion
             }
 
             // List files
-            foreach (string file in SafeGetFiles(searchDirectory))
+            foreach (var file in SafeGetFiles(searchDirectory))
             {
-                string fileName = Path.GetFileName(file);
+                var fileName = Path.GetFileName(file);
                 if (string.IsNullOrEmpty(partialPath) ||
                     fileName.StartsWith(partialPath, System.StringComparison.OrdinalIgnoreCase))
                 {
@@ -250,8 +244,8 @@ namespace CommentsVS.Completion
                     continue;
                 }
 
-                string displayText = "#" + anchor.AnchorId;
-                string description = $"{anchor.FileName}:{anchor.LineNumber}";
+                var displayText = "#" + anchor.AnchorId;
+                var description = $"{anchor.FileName}:{anchor.LineNumber}";
 
                 yield return new CompletionItem(
                     displayText,
@@ -269,7 +263,7 @@ namespace CommentsVS.Completion
         private static bool ShouldSkipFolder(string folderName)
         {
             // Skip common non-source folders
-            string[] skipFolders = { "node_modules", "bin", "obj", ".git", ".vs", "packages", ".nuget" };
+            string[] skipFolders = ["node_modules", "bin", "obj", ".git", ".vs", "packages", ".nuget"];
             return skipFolders.Any(f => f.Equals(folderName, System.StringComparison.OrdinalIgnoreCase));
         }
 
@@ -281,7 +275,7 @@ namespace CommentsVS.Completion
             }
             catch
             {
-                return Enumerable.Empty<string>();
+                return [];
             }
         }
 
@@ -293,7 +287,7 @@ namespace CommentsVS.Completion
             }
             catch
             {
-                return Enumerable.Empty<string>();
+                return [];
             }
         }
 
@@ -301,7 +295,7 @@ namespace CommentsVS.Completion
         {
             _initialized = true;
 
-            if (_textView.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+            if (textView.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
             {
                 _currentFilePath = document.FilePath;
                 _currentDirectory = Path.GetDirectoryName(_currentFilePath);

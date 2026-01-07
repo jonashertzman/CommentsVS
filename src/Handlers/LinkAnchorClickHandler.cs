@@ -1,10 +1,10 @@
+using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using CommentsVS.Services;
 using CommentsVS.ToolWindows;
-using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
@@ -30,16 +30,10 @@ namespace CommentsVS.Handlers
     /// <summary>
     /// Handles mouse clicks on LINK anchors to navigate to the target file/line/anchor.
     /// </summary>
-    internal sealed class LinkAnchorMouseProcessor : MouseProcessorBase
+    internal sealed class LinkAnchorMouseProcessor(IWpfTextView textView) : MouseProcessorBase
     {
-        private readonly IWpfTextView _textView;
         private string _currentFilePath;
         private bool _filePathInitialized;
-
-        public LinkAnchorMouseProcessor(IWpfTextView textView)
-        {
-            _textView = textView;
-        }
 
         public override void PreprocessMouseLeftButtonUp(MouseButtonEventArgs e)
         {
@@ -75,21 +69,21 @@ namespace CommentsVS.Handlers
 
         private SnapshotPoint? GetMousePosition(MouseButtonEventArgs e)
         {
-            Point point = e.GetPosition(_textView.VisualElement);
-            ITextViewLine line = _textView.TextViewLines.GetTextViewLineContainingYCoordinate(point.Y + _textView.ViewportTop);
+            Point point = e.GetPosition(textView.VisualElement);
+            ITextViewLine line = textView.TextViewLines.GetTextViewLineContainingYCoordinate(point.Y + textView.ViewportTop);
 
             if (line == null)
             {
                 return null;
             }
 
-            return line.GetBufferPositionFromXCoordinate(point.X + _textView.ViewportLeft);
+            return line.GetBufferPositionFromXCoordinate(point.X + textView.ViewportLeft);
         }
 
         private LinkAnchorInfo GetLinkAtPosition(SnapshotPoint position)
         {
             ITextSnapshotLine line = position.GetContainingLine();
-            string lineText = line.GetText();
+            var lineText = line.GetText();
 
             // Check if this line is a comment
             if (!LanguageCommentStyle.IsCommentLine(lineText))
@@ -97,7 +91,7 @@ namespace CommentsVS.Handlers
                 return null;
             }
 
-            int positionInLine = position.Position - line.Start.Position;
+            var positionInLine = position.Position - line.Start.Position;
             return LinkAnchorParser.GetLinkAtPosition(lineText, positionInLine);
         }
 
@@ -106,7 +100,7 @@ namespace CommentsVS.Handlers
             ThreadHelper.ThrowIfNotOnUIThread();
 
             string targetPath;
-            int targetLine = 0;
+            var targetLine = 0;
             int? targetEndLine = null;
 
             if (link.IsLocalAnchor)
@@ -172,13 +166,13 @@ namespace CommentsVS.Handlers
             {
                 try
                 {
-                    string[] lines = System.IO.File.ReadAllLines(filePath);
-                    string anchorPattern = $"ANCHOR({anchorName})";
-                    string anchorPatternAlt = $"ANCHOR[id={anchorName}]";
+                    var lines = System.IO.File.ReadAllLines(filePath);
+                    var anchorPattern = $"ANCHOR({anchorName})";
+                    var anchorPatternAlt = $"ANCHOR[id={anchorName}]";
 
-                    for (int i = 0; i < lines.Length; i++)
+                    for (var i = 0; i < lines.Length; i++)
                     {
-                        string line = lines[i];
+                        var line = lines[i];
                         if (line.IndexOf(anchorPattern, StringComparison.OrdinalIgnoreCase) >= 0 ||
                             line.IndexOf(anchorPatternAlt, StringComparison.OrdinalIgnoreCase) >= 0)
                         {
@@ -195,56 +189,98 @@ namespace CommentsVS.Handlers
             return 0;
         }
 
+        /// <summary>
+        /// File extensions that should be opened with the default system application
+        /// instead of Visual Studio's text editor.
+        /// </summary>
+        private static readonly HashSet<string> _nonTextExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".tiff", ".tif", ".webp",
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+            ".zip", ".rar", ".7z", ".tar", ".gz",
+            ".exe", ".dll", ".pdb",
+            ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv"
+        };
+
         private void OpenFileAtLine(string filePath, int lineNumber, int? endLineNumber = null)
         {
+            // Check if this is a non-text file that should be opened externally
+            var extension = System.IO.Path.GetExtension(filePath);
+            if (_nonTextExtensions.Contains(extension))
+            {
+                OpenFileExternally(filePath);
+                return;
+            }
+
             ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-                // Open the file
-                VsShellUtilities.OpenDocument(
-                    ServiceProvider.GlobalProvider,
-                    filePath,
-                    Guid.Empty,
-                    out _,
-                    out _,
-                    out IVsWindowFrame windowFrame,
-                    out IVsTextView vsTextView);
-
-                if (windowFrame != null)
+                try
                 {
-                    windowFrame.Show();
-                }
+                    // Open the file in VS
+                    VsShellUtilities.OpenDocument(
+                        ServiceProvider.GlobalProvider,
+                        filePath,
+                        Guid.Empty,
+                        out _,
+                        out _,
+                        out IVsWindowFrame windowFrame,
+                        out IVsTextView vsTextView);
 
-                // Navigate to line if specified
-                if (vsTextView != null && lineNumber > 0)
-                {
-                    if (endLineNumber.HasValue && endLineNumber.Value > lineNumber)
+                    windowFrame?.Show();
+
+                    // Navigate to line if specified
+                    if (vsTextView != null && lineNumber > 0)
                     {
-                        // Select the range from start line to end line
-                        int startLine = lineNumber - 1; // 0-based
-                        int endLine = endLineNumber.Value - 1; // 0-based
-
-                        // Get the length of the last line to select to end of it
-                        vsTextView.GetBuffer(out IVsTextLines textLines);
-                        int endLineLength = 0;
-                        if (textLines != null)
+                        if (endLineNumber.HasValue && endLineNumber.Value > lineNumber)
                         {
-                            textLines.GetLengthOfLine(endLine, out endLineLength);
-                        }
+                            // Select the range from start line to end line
+                            var startLine = lineNumber - 1; // 0-based
+                            var endLine = endLineNumber.Value - 1; // 0-based
 
-                        // Set selection from start of first line to end of last line
-                        vsTextView.SetSelection(startLine, 0, endLine, endLineLength);
-                        vsTextView.CenterLines(startLine, endLine - startLine + 1);
+                            // Get the length of the last line to select to end of it
+                            vsTextView.GetBuffer(out IVsTextLines textLines);
+                            var endLineLength = 0;
+                            if (textLines != null)
+                            {
+                                textLines.GetLengthOfLine(endLine, out endLineLength);
+                            }
+
+                            // Set selection from start of first line to end of last line
+                            vsTextView.SetSelection(startLine, 0, endLine, endLineLength);
+                            vsTextView.CenterLines(startLine, endLine - startLine + 1);
+                        }
+                        else
+                        {
+                            // Single line - just position caret
+                            vsTextView.SetCaretPos(lineNumber - 1, 0);
+                            vsTextView.CenterLines(lineNumber - 1, 1);
+                        }
                     }
-                    else
-                    {
-                        // Single line - just position caret
-                        vsTextView.SetCaretPos(lineNumber - 1, 0);
-                        vsTextView.CenterLines(lineNumber - 1, 1);
-                    }
+                }
+                catch (Exception ex) when (ex.HResult == unchecked((int)0x8007006E) || ex is System.IO.FileLoadException)
+                {
+                    // File cannot be opened in VS text editor - open externally
+                    OpenFileExternally(filePath);
                 }
             });
+        }
+
+        private static void OpenFileExternally(string filePath)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = filePath,
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+                ShowStatusMessage($"Cannot open file: {filePath}");
+            }
         }
 
         private static void ShowStatusMessage(string message)
@@ -264,7 +300,7 @@ namespace CommentsVS.Handlers
         {
             _filePathInitialized = true;
 
-            if (_textView.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+            if (textView.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
             {
                 _currentFilePath = document.FilePath;
             }

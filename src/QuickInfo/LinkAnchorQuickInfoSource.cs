@@ -24,22 +24,16 @@ namespace CommentsVS.QuickInfo
     /// <summary>
     /// Provides hover tooltips for LINK anchors showing the resolved path and navigation hint.
     /// </summary>
-    internal sealed class LinkAnchorQuickInfoSource : IAsyncQuickInfoSource
+    internal sealed class LinkAnchorQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickInfoSource
     {
-        private readonly ITextBuffer _textBuffer;
         private string _currentFilePath;
         private bool _filePathInitialized;
-
-        public LinkAnchorQuickInfoSource(ITextBuffer textBuffer)
-        {
-            _textBuffer = textBuffer;
-        }
 
         public Task<QuickInfoItem> GetQuickInfoItemAsync(
             IAsyncQuickInfoSession session,
             CancellationToken cancellationToken)
         {
-            SnapshotPoint? triggerPoint = session.GetTriggerPoint(_textBuffer.CurrentSnapshot);
+            SnapshotPoint? triggerPoint = session.GetTriggerPoint(textBuffer.CurrentSnapshot);
             if (!triggerPoint.HasValue)
             {
                 return Task.FromResult<QuickInfoItem>(null);
@@ -52,7 +46,7 @@ namespace CommentsVS.QuickInfo
             }
 
             ITextSnapshotLine line = triggerPoint.Value.GetContainingLine();
-            string lineText = line.GetText();
+            var lineText = line.GetText();
 
             // Check if this line is a comment
             if (!LanguageCommentStyle.IsCommentLine(lineText))
@@ -60,7 +54,7 @@ namespace CommentsVS.QuickInfo
                 return Task.FromResult<QuickInfoItem>(null);
             }
 
-            int positionInLine = triggerPoint.Value.Position - line.Start.Position;
+            var positionInLine = triggerPoint.Value.Position - line.Start.Position;
 
             // Find LINK reference at position (only matches within the clickable target portion)
             LinkAnchorInfo link = LinkAnchorParser.GetLinkAtPosition(lineText, positionInLine);
@@ -71,10 +65,10 @@ namespace CommentsVS.QuickInfo
 
             // Create the tooltip - apply tracking span only to the target portion
             var span = new SnapshotSpan(line.Start + link.TargetStartIndex, link.TargetLength);
-            ITrackingSpan trackingSpan = _textBuffer.CurrentSnapshot.CreateTrackingSpan(
+            ITrackingSpan trackingSpan = textBuffer.CurrentSnapshot.CreateTrackingSpan(
                 span, SpanTrackingMode.EdgeInclusive);
 
-            string tooltip = BuildTooltip(link);
+            var tooltip = BuildTooltip(link);
 
             return Task.FromResult(new QuickInfoItem(trackingSpan, tooltip));
         }
@@ -92,7 +86,7 @@ namespace CommentsVS.QuickInfo
             {
                 // Resolve the path
                 string resolvedPath = null;
-                bool fileExists = false;
+                var fileExists = false;
 
                 if (!string.IsNullOrEmpty(_currentFilePath))
                 {
@@ -138,7 +132,7 @@ namespace CommentsVS.QuickInfo
         {
             _filePathInitialized = true;
 
-            if (_textBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+            if (textBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
             {
                 _currentFilePath = document.FilePath;
             }

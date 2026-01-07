@@ -86,7 +86,7 @@ namespace CommentsVS.ToolWindows
                     return;
                 }
 
-                string solutionDir = Path.GetDirectoryName(solution.FullName);
+                var solutionDir = Path.GetDirectoryName(solution.FullName);
                 if (string.IsNullOrEmpty(solutionDir))
                 {
                     ScanCompleted?.Invoke(this, new ScanCompletedEventArgs(0, true, "Invalid solution path"));
@@ -113,14 +113,14 @@ namespace CommentsVS.ToolWindows
                     return;
                 }
 
-                int totalFiles = filesToScan.Count;
-                int processedFiles = 0;
-                int totalAnchors = 0;
+                var totalFiles = filesToScan.Count;
+                var processedFiles = 0;
+                var totalAnchors = 0;
 
                 // Switch to background thread for file processing
                 await Task.Run(async () =>
                 {
-                    foreach ((string filePath, string projectName) in filesToScan)
+                    foreach ((var filePath, var projectName) in filesToScan)
                     {
                         if (ct.IsCancellationRequested)
                         {
@@ -177,13 +177,13 @@ namespace CommentsVS.ToolWindows
         {
             if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
             {
-                return Array.Empty<AnchorItem>();
+                return [];
             }
 
-            string content = await ReadFileAsync(filePath);
+            var content = await ReadFileAsync(filePath);
             if (string.IsNullOrEmpty(content))
             {
-                return Array.Empty<AnchorItem>();
+                return [];
             }
 
             return _anchorService.ScanText(content, filePath, projectName);
@@ -251,7 +251,7 @@ namespace CommentsVS.ToolWindows
 
             try
             {
-                string projectName = project.Name;
+                var projectName = project.Name;
 
                 // Handle solution folders (Kind = ProjectKinds.vsProjectKindSolutionFolder)
                 if (project.Kind == ProjectKinds.vsProjectKindSolutionFolder)
@@ -324,10 +324,10 @@ namespace CommentsVS.ToolWindows
                     // Check if it's a file
                     if (item.Kind == EnvDTE.Constants.vsProjectItemKindPhysicalFile)
                     {
-                        string filePath = item.FileNames[1];
+                        var filePath = item.FileNames[1];
                         if (!string.IsNullOrEmpty(filePath))
                         {
-                            string extension = Path.GetExtension(filePath);
+                            var extension = Path.GetExtension(filePath);
                             if (extensionsToScan.Contains(extension))
                             {
                                 // Double-check the path doesn't contain ignored folders
@@ -354,8 +354,8 @@ namespace CommentsVS.ToolWindows
 
         private static bool ContainsIgnoredFolder(string filePath, HashSet<string> foldersToIgnore)
         {
-            string[] pathParts = filePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            foreach (string part in pathParts)
+            var pathParts = filePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            foreach (var part in pathParts)
             {
                 if (foldersToIgnore.Contains(part))
                 {

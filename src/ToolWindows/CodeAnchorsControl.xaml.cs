@@ -199,7 +199,7 @@ namespace CommentsVS.ToolWindows
         /// <param name="message">The status message to display.</param>
         /// <param name="current">The current progress value (for progress display).</param>
         /// <param name="total">The total progress value (for progress display).</param>
-        public void UpdateStatus(string message, int current, int total)
+        public void UpdateStatus(string message, int current)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             StatusText.Text = message;

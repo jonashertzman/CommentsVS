@@ -9,8 +9,8 @@ namespace CommentsVS.ToolWindows
     /// </summary>
     public class SolutionAnchorCache
     {
-        private readonly ConcurrentDictionary<string, IReadOnlyList<AnchorItem>> _fileAnchors = 
-            new ConcurrentDictionary<string, IReadOnlyList<AnchorItem>>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, IReadOnlyList<AnchorItem>> _fileAnchors =
+            new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Event raised when the cache contents change.
@@ -78,10 +78,10 @@ namespace CommentsVS.ToolWindows
         {
             if (string.IsNullOrEmpty(filePath))
             {
-                return Array.Empty<AnchorItem>();
+                return [];
             }
 
-            return _fileAnchors.TryGetValue(filePath, out var anchors) ? anchors : Array.Empty<AnchorItem>();
+            return _fileAnchors.TryGetValue(filePath, out IReadOnlyList<AnchorItem> anchors) ? anchors : [];
         }
 
         /// <summary>
@@ -91,7 +91,7 @@ namespace CommentsVS.ToolWindows
         public IReadOnlyList<AnchorItem> GetAllAnchors()
         {
             var allAnchors = new List<AnchorItem>();
-            foreach (var anchors in _fileAnchors.Values)
+            foreach (IReadOnlyList<AnchorItem> anchors in _fileAnchors.Values)
             {
                 allAnchors.AddRange(anchors);
             }
@@ -113,6 +113,7 @@ namespace CommentsVS.ToolWindows
             return _fileAnchors.ContainsKey(filePath);
         }
 
+
         /// <summary>
         /// Clears all cached data.
         /// </summary>
@@ -128,7 +129,61 @@ namespace CommentsVS.ToolWindows
         /// <returns>Collection of file paths.</returns>
         public IReadOnlyCollection<string> GetCachedFilePaths()
         {
-            return _fileAnchors.Keys.ToList();
+            return [.. _fileAnchors.Keys];
+        }
+
+        /// <summary>
+        /// Gets a snapshot of all cached data for serialization.
+        /// </summary>
+        /// <returns>Dictionary of file paths to anchor lists.</returns>
+        public IReadOnlyDictionary<string, IReadOnlyList<AnchorItem>> GetSnapshot()
+        {
+            return new Dictionary<string, IReadOnlyList<AnchorItem>>(_fileAnchors);
+        }
+
+        /// <summary>
+        /// Loads cached data from a dictionary, replacing existing contents.
+        /// </summary>
+        /// <param name="data">The data to load.</param>
+        public void LoadFrom(Dictionary<string, IReadOnlyList<AnchorItem>> data)
+        {
+            _fileAnchors.Clear();
+
+            if (data != null)
+            {
+                foreach (KeyValuePair<string, IReadOnlyList<AnchorItem>> kvp in data)
+                {
+                    _fileAnchors[kvp.Key] = kvp.Value;
+                }
+            }
+
+            CacheChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Saves the cache to disk for the given solution directory.
+        /// </summary>
+        /// <param name="solutionDirectory">The solution root directory.</param>
+        /// <returns>True if saved successfully.</returns>
+        public bool SaveToDisk(string solutionDirectory)
+        {
+            return AnchorCacheSerializer.Save(solutionDirectory, GetSnapshot());
+        }
+
+        /// <summary>
+        /// Loads the cache from disk for the given solution directory.
+        /// </summary>
+        /// <param name="solutionDirectory">The solution root directory.</param>
+        /// <returns>True if loaded successfully.</returns>
+        public bool LoadFromDisk(string solutionDirectory)
+        {
+            Dictionary<string, IReadOnlyList<AnchorItem>> data = AnchorCacheSerializer.Load(solutionDirectory);
+            if (data != null)
+            {
+                LoadFrom(data);
+                return true;
+            }
+            return false;
         }
     }
 }

@@ -173,7 +173,7 @@ namespace CommentsVS.ToolWindows
                 return anchors;
             }
 
-            var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            var lines = text.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
 
             for (var lineNumber = 0; lineNumber < lines.Length; lineNumber++)
             {

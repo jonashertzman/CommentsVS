@@ -139,7 +139,7 @@ namespace CommentsVS.Options
             var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (!string.IsNullOrWhiteSpace(FileExtensionsToScan))
             {
-                foreach (var ext in FileExtensionsToScan.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                foreach (var ext in FileExtensionsToScan.Split([','], StringSplitOptions.RemoveEmptyEntries))
                 {
                     var trimmed = ext.Trim();
                     if (!string.IsNullOrEmpty(trimmed))
@@ -160,7 +160,7 @@ namespace CommentsVS.Options
             var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (!string.IsNullOrWhiteSpace(FoldersToIgnore))
             {
-                foreach (var folder in FoldersToIgnore.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                foreach (var folder in FoldersToIgnore.Split([','], StringSplitOptions.RemoveEmptyEntries))
                 {
                     var trimmed = folder.Trim();
                     if (!string.IsNullOrEmpty(trimmed))

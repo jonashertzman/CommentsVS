@@ -136,8 +136,24 @@ namespace CommentsVS.ToolWindows
         {
             ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
+                // Try to load cache from disk first
+                var solutionDir = await GetSolutionDirectoryAsync();
+                var cacheLoaded = false;
+
+                if (!string.IsNullOrEmpty(solutionDir))
+                {
+                    cacheLoaded = _cache.LoadFromDisk(solutionDir);
+                    if (cacheLoaded)
+                    {
+                        // Refresh UI with loaded cache
+                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                        RefreshAnchorsFromCache();
+                    }
+                }
+
+                // If cache not loaded or scan on load is enabled, scan the solution
                 General options = await General.GetLiveInstanceAsync();
-                if (options.ScanSolutionOnLoad)
+                if (!cacheLoaded || options.ScanSolutionOnLoad)
                 {
                     await ScanSolutionAsync();
                 }
@@ -146,12 +162,20 @@ namespace CommentsVS.ToolWindows
 
         private void OnSolutionClosed()
         {
-            _cache?.Clear();
             ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
+                // Save cache to disk before clearing
+                var solutionDir = await GetSolutionDirectoryAsync();
+                if (!string.IsNullOrEmpty(solutionDir))
+                {
+                    _cache?.SaveToDisk(solutionDir);
+                }
+
+                _cache?.Clear();
+
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 _control?.ClearAnchors();
-                _control?.UpdateStatus("No solution loaded", 0, 0);
+                _control?.UpdateStatus("No solution loaded", 0);
             }).FireAndForget();
         }
 
@@ -162,10 +186,10 @@ namespace CommentsVS.ToolWindows
             {
                 ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
                 {
-                    string projectName = await GetProjectNameForFileAsync(filePath);
+                    var projectName = await GetProjectNameForFileAsync(filePath);
                     IReadOnlyList<AnchorItem> anchors = await _scanner.ScanFileAsync(filePath, projectName);
                     _cache.AddOrUpdateFile(filePath, anchors);
-                    
+
                     // Refresh the UI
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                     RefreshAnchorsFromCache();
@@ -180,10 +204,10 @@ namespace CommentsVS.ToolWindows
             {
                 ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
                 {
-                    string projectName = await GetProjectNameForFileAsync(filePath);
+                    var projectName = await GetProjectNameForFileAsync(filePath);
                     IReadOnlyList<AnchorItem> anchors = await _scanner.ScanFileAsync(filePath, projectName);
                     _cache.AddOrUpdateFile(filePath, anchors);
-                    
+
                     // Refresh the UI
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                     RefreshAnchorsFromCache();
@@ -200,9 +224,9 @@ namespace CommentsVS.ToolWindows
                 ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
                 {
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                    
+
                     // Check if a solution is loaded
-                    bool solutionLoaded = await VS.Solutions.IsOpenAsync();
+                    var solutionLoaded = await VS.Solutions.IsOpenAsync();
                     if (!solutionLoaded)
                     {
                         // No solution - remove the file from cache
@@ -218,7 +242,7 @@ namespace CommentsVS.ToolWindows
             ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                _control?.UpdateStatus("Scanning solution...", 0, 0);
+                _control?.UpdateStatus("Scanning solution...", 0);
             }).FireAndForget();
         }
 
@@ -227,7 +251,7 @@ namespace CommentsVS.ToolWindows
             ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                _control?.UpdateStatus($"Scanning... {e.ProcessedFiles}/{e.TotalFiles} files ({e.AnchorsFound} anchors)", e.ProcessedFiles, e.TotalFiles);
+                _control?.UpdateStatus($"Scanning... {e.ProcessedFiles}/{e.TotalFiles} files ({e.AnchorsFound} anchors)", e.ProcessedFiles);
             }).FireAndForget();
         }
 
@@ -239,12 +263,19 @@ namespace CommentsVS.ToolWindows
 
                 if (e.WasCancelled)
                 {
-                    _control?.UpdateStatus(e.ErrorMessage ?? "Scan cancelled", 0, 0);
+                    _control?.UpdateStatus(e.ErrorMessage ?? "Scan cancelled", 0);
                 }
                 else
                 {
                     // Update the control with all anchors from cache
                     RefreshAnchorsFromCache();
+
+                    // Save cache to disk after successful scan
+                    var solutionDir = await GetSolutionDirectoryAsync();
+                    if (!string.IsNullOrEmpty(solutionDir))
+                    {
+                        _cache?.SaveToDisk(solutionDir);
+                    }
                 }
             }).FireAndForget();
         }
@@ -313,6 +344,27 @@ namespace CommentsVS.ToolWindows
             {
                 return null;
             }
+        }
+
+        private async Task<string> GetSolutionDirectoryAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            try
+            {
+                Solution solution = await VS.Solutions.GetCurrentSolutionAsync();
+                var solutionPath = solution?.FullPath;
+                if (!string.IsNullOrEmpty(solutionPath))
+                {
+                    return System.IO.Path.GetDirectoryName(solutionPath);
+                }
+            }
+            catch
+            {
+                // Ignore errors
+            }
+
+            return null;
         }
     }
 }

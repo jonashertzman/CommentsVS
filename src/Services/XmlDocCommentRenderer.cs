@@ -555,7 +555,7 @@ namespace CommentsVS.Services
             var codeContent = element.InnerText;
 
             // Split by newlines while preserving empty lines
-            var codeLines = codeContent.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            var codeLines = codeContent.Split(["\r\n", "\n"], StringSplitOptions.None);
 
             // Find minimum indentation to normalize (skip empty lines)
             var minIndent = int.MaxValue;

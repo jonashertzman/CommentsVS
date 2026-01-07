@@ -88,7 +88,7 @@ namespace CommentsVS.Tagging
 
             foreach (SnapshotSpan span in spans)
             {
-                string text = span.GetText();
+                var text = span.GetText();
 
                 // Fast pre-check: skip if no LINK keyword
                 if (text.IndexOf("LINK", StringComparison.OrdinalIgnoreCase) < 0)

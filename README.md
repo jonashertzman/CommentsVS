@@ -102,7 +102,7 @@ Example:
 ```
 
 ### Context Menu Access
-Right-click in any C#, VB, or C++ code editor to access the **Comments** submenu with quick access to:
+Right-click in any C#, VB, or C++ code editor to access the **Comment Studio** submenu with quick access to:
 - **Expand/collapse XML Doc Comments** - Toggle visibility of all XML doc comments (**Ctrl+M, Ctrl+C**)
 - **Collapse XML Doc Comments by Default** - Toggle automatic collapsing
 - **Rendering: Off / Compact / Full** - Switch between rendering modes
@@ -255,9 +255,11 @@ These are especially useful for marking important sections you frequently need t
 ```
 
 #### Features
-- **Underlined links** — LINK references are underlined and highlighted
+- **Underlined links** — Only the file path/anchor is underlined (not "LINK:")
 - **Hover tooltips** — See the resolved file path and validation status
 - **Ctrl+Click navigation** — Jump directly to the target file, line, or anchor
+- **Line range selection** — Links with ranges (`:10-20`) select the entire range
+- **Non-text files** — Images, PDFs, etc. open with their default application
 - **IntelliSense** — Get completions for file paths and anchor names
 - **Validation** — Warning squiggles appear for broken links (missing files)
 - **Path resolution** — Supports relative (`./`, `../`), solution-relative (`/`, `~/`), and project-relative (`@/`) paths
