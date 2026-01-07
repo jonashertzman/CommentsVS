@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.PlatformUI;
-using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 
 namespace CommentsVS.ToolWindows
@@ -19,7 +18,7 @@ namespace CommentsVS.ToolWindows
 
         public CodeAnchorsToolWindowPane()
         {
-            BitmapImageMoniker = KnownMonikers.Bookmark;
+            BitmapImageMoniker = KnownMonikers.CodeReviewDashboard;
             ToolBar = new System.ComponentModel.Design.CommandID(PackageGuids.CommentsVS, PackageIds.CodeAnchorsToolbar);
             ToolBarLocation = (int)VSTWT_LOCATION.VSTWT_TOP;
         }
