@@ -138,7 +138,7 @@ namespace CommentsVS.Handlers
 
             if (textView.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
             {
-                _repoInfo = GitRepositoryService.GetRepositoryInfo(document.FilePath);
+                _repoInfo = GitRepositoryService.GetRepositoryInfoSync(document.FilePath);
             }
         }
     }

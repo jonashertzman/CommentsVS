@@ -81,13 +81,13 @@ namespace CommentsVS.Handlers
 
                 CancellationToken token = _debounceCts.Token;
 
-                // Schedule debounced reflow check (fire-and-forget by design for debouncing)
-#pragma warning disable VSSDK007 // Use AsyncPackage.JoinableTaskFactory
-                ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+                // Schedule debounced reflow check
+                // Note: Fire-and-forget is intentional here for debouncing UX, but we catch all exceptions
+                _ = ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
                 {
                     try
                     {
-                        await System.Threading.Tasks.Task.Delay(_debounceDelayMs, token);
+                        await System.Threading.Tasks.Task.Delay(_debounceDelayMs, token).ConfigureAwait(false);
 
                         if (token.IsCancellationRequested)
                         {
@@ -101,14 +101,18 @@ namespace CommentsVS.Handlers
                             return;
                         }
 
-                        await TryReflowAtPositionAsync(changePosition, token);
+                        await TryReflowAtPositionAsync(changePosition, token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
-                        // Expected when typing continues
+                        // Expected when typing continues - debounce was cancelled
                     }
-                }).FireAndForget();
-#pragma warning restore VSSDK007
+                    catch (Exception ex)
+                    {
+                        // Log unexpected exceptions to prevent silent failures
+                        await ex.LogAsync();
+                    }
+                });
             }
 
             private static bool IsSingleCharacterTyping(TextContentChangedEventArgs e)

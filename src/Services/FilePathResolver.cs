@@ -1,4 +1,7 @@
+using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
 
@@ -24,9 +27,14 @@ namespace CommentsVS.Services
     /// <param name="projectDirectory">The project directory (optional).</param>
     public class FilePathResolver(string currentFilePath, string solutionDirectory = null, string projectDirectory = null)
     {
+        /// <summary>
+        /// Cache for project directories to avoid repeated file system walks.
+        /// </summary>
+        private static readonly ConcurrentDictionary<string, string> _projectDirCache = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Creates a FilePathResolver for the given file path, automatically detecting solution and project directories.
+        /// This method switches to the UI thread only when necessary.
         /// </summary>
         /// <param name="currentFilePath">The full path of the current file.</param>
         /// <returns>A configured FilePathResolver instance.</returns>
@@ -35,12 +43,31 @@ namespace CommentsVS.Services
             string solutionDir = null;
             string projectDir = null;
 
-            ThreadHelper.JoinableTaskFactory.Run(async () =>
+            // Try cache first for project directory
+            if (!string.IsNullOrEmpty(currentFilePath))
             {
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                solutionDir = GetSolutionDirectory();
-                projectDir = GetProjectDirectory(currentFilePath);
-            });
+                _projectDirCache.TryGetValue(currentFilePath, out projectDir);
+            }
+
+            // Only switch to UI thread if we need to query VS services
+            if (projectDir == null)
+            {
+                ThreadHelper.JoinableTaskFactory.Run(async () =>
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    solutionDir = GetSolutionDirectory();
+                    projectDir = await GetProjectDirectoryAsync(currentFilePath).ConfigureAwait(true);
+                });
+            }
+            else
+            {
+                // We have cached project dir, but still need solution dir from UI thread
+                ThreadHelper.JoinableTaskFactory.Run(async () =>
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    solutionDir = GetSolutionDirectory();
+                });
+            }
 
             return new FilePathResolver(currentFilePath, solutionDir, projectDir);
         }
@@ -145,15 +172,25 @@ namespace CommentsVS.Services
 
         /// <summary>
         /// Gets the project directory for the file containing the link.
+        /// Uses caching and async file enumeration to avoid blocking.
         /// </summary>
-        private static string GetProjectDirectory(string filePath)
+        private static async Task<string> GetProjectDirectoryAsync(string filePath)
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
             if (string.IsNullOrEmpty(filePath))
             {
                 return null;
             }
+
+            // Check cache first
+            if (_projectDirCache.TryGetValue(filePath, out var cachedDir))
+            {
+                return cachedDir;
+            }
+
+            string result = null;
+
+            // Must be on UI thread to access VS services
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             if (ServiceProvider.GlobalProvider.GetService(typeof(SVsSolution)) is IVsSolution solution)
             {
@@ -162,30 +199,47 @@ namespace CommentsVS.Services
                 if (hierarchy != null)
                 {
                     hierarchy.GetProperty((uint)VSConstants.VSITEMID.Root, (int)__VSHPROPID.VSHPROPID_ProjectDir, out var projectDirObj);
-                    return projectDirObj as string;
+                    result = projectDirObj as string;
+                    if (result != null)
+                    {
+                        _projectDirCache.TryAdd(filePath, result);
+                        return result;
+                    }
                 }
             }
 
-            // Fallback: walk up directory tree looking for .csproj/.vbproj
-            var dir = Path.GetDirectoryName(filePath);
-            while (!string.IsNullOrEmpty(dir))
+            // Fallback: walk up directory tree looking for .csproj/.vbproj on background thread
+            result = await Task.Run(() =>
             {
-                var projectFiles = Directory.GetFiles(dir, "*.csproj");
-                if (projectFiles.Length > 0)
+                var dir = Path.GetDirectoryName(filePath);
+                while (!string.IsNullOrEmpty(dir))
                 {
-                    return dir;
+                    try
+                    {
+                        // Check for project files without blocking
+                        if (Directory.EnumerateFiles(dir, "*.csproj").Any() ||
+                            Directory.EnumerateFiles(dir, "*.vbproj").Any())
+                        {
+                            return dir;
+                        }
+                    }
+                    catch
+                    {
+                        // Skip directories we can't access
+                    }
+
+                    dir = Path.GetDirectoryName(dir);
                 }
 
-                projectFiles = Directory.GetFiles(dir, "*.vbproj");
-                if (projectFiles.Length > 0)
-                {
-                    return dir;
-                }
+                return null;
+            }).ConfigureAwait(false);
 
-                dir = Path.GetDirectoryName(dir);
+            if (result != null)
+            {
+                _projectDirCache.TryAdd(filePath, result);
             }
 
-            return null;
+            return result;
         }
 
         /// <summary>

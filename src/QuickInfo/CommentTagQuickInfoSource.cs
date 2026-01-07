@@ -63,30 +63,52 @@ namespace CommentsVS.QuickInfo
             ITextSnapshotLine line = triggerPoint.Value.GetContainingLine();
             var lineText = line.GetText();
 
-            // Check if this line is a comment
-            if (!_commentLineRegex.IsMatch(lineText))
+            var positionInLine = triggerPoint.Value.Position - line.Start.Position;
+
+            // Find the comment portion(s) in the line
+            IEnumerable<(int Start, int Length)> commentSpans = FindCommentSpans(lineText);
+
+            // Check if trigger point is within any comment span
+            var isInComment = false;
+            var commentText = lineText;
+            var commentStartInLine = 0;
+
+            foreach ((var start, var length) in commentSpans)
+            {
+                if (positionInLine >= start && positionInLine < start + length)
+                {
+                    isInComment = true;
+                    commentText = lineText.Substring(start, length);
+                    commentStartInLine = start;
+                    break;
+                }
+            }
+
+            if (!isInComment)
             {
                 return null;
             }
 
-            var positionInLine = triggerPoint.Value.Position - line.Start.Position;
-
-            // Find comment tags in the line
-            foreach (Match match in _commentTagRegex.Matches(lineText))
+            // Find comment tags in the comment portion
+            foreach (Match match in _commentTagRegex.Matches(commentText))
             {
-                // Check if the trigger point is within this match
-                if (positionInLine >= match.Index && positionInLine <= match.Index + match.Length)
+                var matchStartInLine = commentStartInLine + match.Index;
+                var matchEndInLine = matchStartInLine + match.Length;
+
+                // Check if the trigger point is within this match (adjusted for comment start)
+                if (positionInLine >= matchStartInLine && positionInLine <= matchEndInLine)
                 {
                     var tag = match.Groups["tag"].Value.ToUpperInvariant();
                     (var title, var description) = GetTagDescription(tag);
 
                     if (!string.IsNullOrEmpty(description))
                     {
-                        var span = new SnapshotSpan(line.Start + match.Index, match.Length);
+                        var span = new SnapshotSpan(line.Start + matchStartInLine, match.Length);
                         ITrackingSpan trackingSpan = textBuffer.CurrentSnapshot.CreateTrackingSpan(
                             span, SpanTrackingMode.EdgeInclusive);
 
-                        IReadOnlyList<CommentTagMetadataItem> metadata = TryParseMetadata(lineText, match);
+                        // Parse metadata from the original line text, adjusting match position
+                        IReadOnlyList<CommentTagMetadataItem> metadata = TryParseMetadata(lineText, commentStartInLine, match);
                         GitRepositoryInfo repoInfo = GetRepoInfo();
                         ContainerElement content = CreateQuickInfoContent(tag, title, description, metadata, repoInfo);
 
@@ -141,7 +163,7 @@ namespace CommentsVS.QuickInfo
         {
             if (textBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
             {
-                return GitRepositoryService.GetRepositoryInfo(document.FilePath);
+                return GitRepositoryService.GetRepositoryInfoSync(document.FilePath);
             }
 
             return null;
@@ -275,7 +297,7 @@ namespace CommentsVS.QuickInfo
             }
         }
 
-        private static IReadOnlyList<CommentTagMetadataItem> TryParseMetadata(string lineText, Match tagMatch)
+        private static IReadOnlyList<CommentTagMetadataItem> TryParseMetadata(string lineText, int commentStartInLine, Match tagMatch)
         {
             // Attempt to find a prefixed metadata section immediately after the tag token.
             // Examples:
@@ -285,7 +307,9 @@ namespace CommentsVS.QuickInfo
             //   TODO(@user, #1234, 2026-02-01): message
             //   TODO[@user #1234 2026-02-01]: message
 
-            Match match = _metadataRegex.Match(lineText, tagMatch.Index);
+            // Adjust match position to be relative to full line
+            var adjustedIndex = commentStartInLine + tagMatch.Index;
+            Match match = _metadataRegex.Match(lineText, adjustedIndex);
             if (!match.Success || match.Index != tagMatch.Index)
             {
                 return null;
@@ -338,6 +362,92 @@ namespace CommentsVS.QuickInfo
             }
 
             return items;
+        }
+
+        /// <summary>
+        /// Finds all comment spans in the given text (both full-line and inline comments).
+        /// </summary>
+        private static IEnumerable<(int Start, int Length)> FindCommentSpans(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                yield break;
+            }
+
+            // Check if entire line is a comment (starts with comment prefix)
+            if (_commentLineRegex.IsMatch(text))
+            {
+                yield return (0, text.Length);
+                yield break;
+            }
+
+            // Look for inline single-line comments (//)
+            var inlineCommentIndex = text.IndexOf("//");
+            if (inlineCommentIndex >= 0)
+            {
+                // Make sure it's not inside a string literal
+                if (!IsInsideStringLiteral(text, inlineCommentIndex))
+                {
+                    yield return (inlineCommentIndex, text.Length - inlineCommentIndex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Checks if a position is inside a string literal.
+        /// Simple heuristic: count quotes before the position.
+        /// </summary>
+        private static bool IsInsideStringLiteral(string text, int position)
+        {
+            var quoteCount = 0;
+            var inVerbatim = false;
+
+            for (var i = 0; i < position; i++)
+            {
+                if (text[i] == '@' && i + 1 < text.Length && text[i + 1] == '"')
+                {
+                    inVerbatim = true;
+                    quoteCount++;
+                    i++; // Skip the quote
+                    continue;
+                }
+
+                if (text[i] == '"')
+                {
+                    // Check if it's escaped (not in verbatim)
+                    if (!inVerbatim && i > 0 && text[i - 1] == '\\')
+                    {
+                        // Count consecutive backslashes
+                        var backslashCount = 0;
+                        for (var j = i - 1; j >= 0 && text[j] == '\\'; j--)
+                        {
+                            backslashCount++;
+                        }
+                        // If odd number of backslashes, the quote is escaped
+                        if (backslashCount % 2 == 1)
+                        {
+                            continue;
+                        }
+                    }
+
+                    quoteCount++;
+
+                    // If we were in verbatim and hit a quote, check for double-quote escape
+                    if (inVerbatim && i + 1 < text.Length && text[i + 1] == '"')
+                    {
+                        i++; // Skip the second quote in ""
+                        continue;
+                    }
+
+                    if (quoteCount % 2 == 0)
+                    {
+                        inVerbatim = false;
+                    }
+                }
+            }
+
+            // Odd quote count means we're inside a string
+            return quoteCount % 2 == 1;
         }
     }
 

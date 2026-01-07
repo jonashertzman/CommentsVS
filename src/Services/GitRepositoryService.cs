@@ -1,7 +1,7 @@
-using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace CommentsVS.Services
 {
@@ -15,6 +15,11 @@ namespace CommentsVS.Services
         /// Using ConcurrentDictionary for thread-safety since multiple taggers may access simultaneously.
         /// </summary>
         private static readonly ConcurrentDictionary<string, GitRepositoryInfo> _repoCache = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Cache of in-flight async operations to prevent duplicate reads.
+        /// </summary>
+        private static readonly ConcurrentDictionary<string, Task<GitRepositoryInfo>> _pendingReads = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Defines a pattern for matching a Git remote URL to a hosting provider.
@@ -59,10 +64,10 @@ namespace CommentsVS.Services
         ];
 
         /// <summary>
-        /// Gets repository info for a file path by finding the Git repository root and parsing the remote URL.
+        /// Gets repository info for a file path asynchronously by finding the Git repository root and parsing the remote URL.
         /// Results are cached by git directory for performance.
         /// </summary>
-        public static GitRepositoryInfo GetRepositoryInfo(string filePath)
+        public static async Task<GitRepositoryInfo> GetRepositoryInfoAsync(string filePath)
         {
             if (string.IsNullOrEmpty(filePath))
             {
@@ -83,24 +88,73 @@ namespace CommentsVS.Services
                     return cachedInfo;
                 }
 
-                // Parse and cache
-                var remoteUrl = GetOriginRemoteUrl(gitDir);
-                if (string.IsNullOrEmpty(remoteUrl))
+                // Check if there's already a pending read for this git directory
+                if (_pendingReads.TryGetValue(gitDir, out Task<GitRepositoryInfo> pendingTask))
                 {
-                    return null;
+                    return await pendingTask.ConfigureAwait(false);
                 }
 
-                GitRepositoryInfo repoInfo = ParseRemoteUrl(remoteUrl);
+                // Create new task for reading
+                Task<GitRepositoryInfo> readTask = ReadAndCacheRepositoryInfoAsync(gitDir);
 
-                // Cache even if null to avoid repeated lookups
-                _repoCache.TryAdd(gitDir, repoInfo);
+                // Store the task to prevent duplicate reads
+                if (_pendingReads.TryAdd(gitDir, readTask))
+                {
+                    try
+                    {
+                        return await readTask.ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        // Clean up the pending read
+                        _pendingReads.TryRemove(gitDir, out _);
+                    }
+                }
+                else
+                {
+                    // Another thread added it first, use that one
+                    if (_pendingReads.TryGetValue(gitDir, out Task<GitRepositoryInfo> existingTask))
+                    {
+                        return await existingTask.ConfigureAwait(false);
+                    }
 
-                return repoInfo;
+                    // Fallback: just read it
+                    return await readTask.ConfigureAwait(false);
+                }
             }
             catch
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Gets repository info synchronously for scenarios where async isn't possible (e.g., ITagger.GetTags).
+        /// This blocks the calling thread - prefer GetRepositoryInfoAsync when possible.
+        /// Uses JoinableTaskFactory to properly handle UI thread transitions.
+        /// </summary>
+        internal static GitRepositoryInfo GetRepositoryInfoSync(string filePath)
+        {
+            return ThreadHelper.JoinableTaskFactory.Run(() => GetRepositoryInfoAsync(filePath));
+        }
+
+        private static async Task<GitRepositoryInfo> ReadAndCacheRepositoryInfoAsync(string gitDir)
+        {
+            // Read remote URL on background thread
+            var remoteUrl = await Task.Run(() => GetOriginRemoteUrlAsync(gitDir)).ConfigureAwait(false);
+
+            if (string.IsNullOrEmpty(remoteUrl))
+            {
+                _repoCache.TryAdd(gitDir, null);
+                return null;
+            }
+
+            GitRepositoryInfo repoInfo = ParseRemoteUrl(remoteUrl);
+
+            // Cache even if null to avoid repeated lookups
+            _repoCache.TryAdd(gitDir, repoInfo);
+
+            return repoInfo;
         }
 
         private static string FindGitDirectory(string startPath)
@@ -127,7 +181,7 @@ namespace CommentsVS.Services
             return null;
         }
 
-        private static string GetOriginRemoteUrl(string gitDir)
+        private static async Task<string> GetOriginRemoteUrlAsync(string gitDir)
         {
             var configPath = Path.Combine(gitDir, "config");
             if (!File.Exists(configPath))
@@ -135,7 +189,17 @@ namespace CommentsVS.Services
                 return null;
             }
 
-            var lines = File.ReadAllLines(configPath);
+            string[] lines;
+            try
+            {
+                // .NET Framework 4.8 doesn't have ReadAllLinesAsync, read on background thread
+                lines = await Task.Run(() => File.ReadAllLines(configPath)).ConfigureAwait(false);
+            }
+            catch
+            {
+                return null;
+            }
+
             var inOriginSection = false;
 
             foreach (var line in lines)

@@ -104,8 +104,8 @@ namespace CommentsVS.Classification
                                 if (classificationType != null && contentGroup.Success)
                                 {
                                     // Classify the marker and the content together
-                                    int startIndex = markerGroup.Index;
-                                    int length = (contentGroup.Index + contentGroup.Length) - markerGroup.Index;
+                                    var startIndex = markerGroup.Index;
+                                    var length = (contentGroup.Index + contentGroup.Length) - markerGroup.Index;
 
                                     if (length > 0)
                                     {

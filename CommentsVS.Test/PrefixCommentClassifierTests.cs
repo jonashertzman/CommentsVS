@@ -173,7 +173,7 @@ public sealed class PrefixCommentClassifierTests
 // * Third important";
         MatchCollection matches = _prefixRegex.Matches(text);
 
-        Assert.AreEqual(3, matches.Count);
+        Assert.HasCount(3, matches);
         Assert.AreEqual("!", matches[0].Groups["marker"].Value);
         Assert.AreEqual("?", matches[1].Groups["marker"].Value);
         Assert.AreEqual("*", matches[2].Groups["marker"].Value);

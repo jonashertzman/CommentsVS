@@ -128,7 +128,7 @@ namespace CommentsVS.Completion
             return new CompletionStartData(CompletionParticipation.ProvidesItems, span);
         }
 
-        public Task<CompletionContext> GetCompletionContextAsync(
+        public async Task<CompletionContext> GetCompletionContextAsync(
             IAsyncCompletionSession session,
             CompletionTrigger trigger,
             SnapshotPoint triggerLocation,
@@ -143,7 +143,7 @@ namespace CommentsVS.Completion
             var lineText = line.GetText();
             var positionInLine = triggerLocation.Position - line.Start.Position;
             var textBeforeCursor = lineText.Substring(0, positionInLine);
-            
+
             // Find LINK: and extract the full path context
             var linkIndex = textBeforeCursor.LastIndexOf("LINK", System.StringComparison.OrdinalIgnoreCase);
             if (linkIndex >= 0)
@@ -162,17 +162,19 @@ namespace CommentsVS.Completion
                 }
                 else
                 {
-                    // Provide file path completions with full context
-                    items.AddRange(GetFilePathCompletions(fullPathContext, currentText));
+                    // Provide file path completions with full context - run on background thread
+                    List<CompletionItem> fileCompletions = await Task.Run(() =>
+                        GetFilePathCompletions(fullPathContext, currentText).ToList(), token).ConfigureAwait(false);
+                    items.AddRange(fileCompletions);
                 }
             }
 
             if (items.Count == 0)
             {
-                return Task.FromResult(CompletionContext.Empty);
+                return CompletionContext.Empty;
             }
 
-            return Task.FromResult(new CompletionContext(items.ToImmutableArray()));
+            return new CompletionContext(items.ToImmutableArray());
         }
 
         public Task<object> GetDescriptionAsync(IAsyncCompletionSession session, CompletionItem item, CancellationToken token)
@@ -206,7 +208,7 @@ namespace CommentsVS.Completion
 
             // If there's a path separator in the full path context, navigate to that directory
             var lastSep = fullPathContext.LastIndexOfAny(['/', '\\']);
-            string partialName = "";
+            var partialName = "";
             if (lastSep >= 0)
             {
                 var subDir = fullPathContext.Substring(0, lastSep);
@@ -235,40 +237,40 @@ namespace CommentsVS.Completion
 
                 if (string.IsNullOrEmpty(partialName) ||
                         dirName.StartsWith(partialName, System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        var insertText = prefix + dirName + "/";
-                        yield return new CompletionItem(
-                            displayText: dirName + "/",
-                            source: this,
-                            icon: _folderIcon,
-                            filters: ImmutableArray<CompletionFilter>.Empty,
-                            suffix: insertText,
-                            insertText: insertText,
-                            sortText: insertText,
-                            filterText: insertText,
-                            attributeIcons: ImmutableArray<ImageElement>.Empty);
-                    }
-                }
-
-                // List files
-                foreach (var file in SafeGetFiles(searchDirectory))
                 {
-                    var fileName = Path.GetFileName(file);
-                    if (string.IsNullOrEmpty(partialName) ||
-                        fileName.StartsWith(partialName, System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        var insertText = prefix + fileName;
-                        yield return new CompletionItem(
-                            displayText: fileName,
-                            source: this,
-                            icon: _fileIcon,
-                            filters: ImmutableArray<CompletionFilter>.Empty,
-                            suffix: insertText,
-                            insertText: insertText,
-                            sortText: insertText,
-                            filterText: insertText,
-                            attributeIcons: ImmutableArray<ImageElement>.Empty);
-                    }
+                    var insertText = prefix + dirName + "/";
+                    yield return new CompletionItem(
+                        displayText: dirName + "/",
+                        source: this,
+                        icon: _folderIcon,
+                        filters: ImmutableArray<CompletionFilter>.Empty,
+                        suffix: insertText,
+                        insertText: insertText,
+                        sortText: insertText,
+                        filterText: insertText,
+                        attributeIcons: ImmutableArray<ImageElement>.Empty);
+                }
+            }
+
+            // List files
+            foreach (var file in SafeGetFiles(searchDirectory))
+            {
+                var fileName = Path.GetFileName(file);
+                if (string.IsNullOrEmpty(partialName) ||
+                    fileName.StartsWith(partialName, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    var insertText = prefix + fileName;
+                    yield return new CompletionItem(
+                        displayText: fileName,
+                        source: this,
+                        icon: _fileIcon,
+                        filters: ImmutableArray<CompletionFilter>.Empty,
+                        suffix: insertText,
+                        insertText: insertText,
+                        sortText: insertText,
+                        filterText: insertText,
+                        attributeIcons: ImmutableArray<ImageElement>.Empty);
+                }
             }
         }
 
@@ -329,7 +331,8 @@ namespace CommentsVS.Completion
         {
             try
             {
-                return Directory.GetDirectories(path);
+                // Use EnumerateDirectories instead of GetDirectories to avoid loading all at once
+                return Directory.EnumerateDirectories(path);
             }
             catch
             {
@@ -341,7 +344,8 @@ namespace CommentsVS.Completion
         {
             try
             {
-                return Directory.GetFiles(path);
+                // Use EnumerateFiles instead of GetFiles to avoid loading all at once
+                return Directory.EnumerateFiles(path);
             }
             catch
             {

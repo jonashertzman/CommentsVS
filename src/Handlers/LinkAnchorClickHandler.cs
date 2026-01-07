@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using CommentsVS.Services;
@@ -99,47 +101,53 @@ namespace CommentsVS.Handlers
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            string targetPath;
-            var targetLine = 0;
-            int? targetEndLine = null;
+            // Run navigation asynchronously to avoid blocking UI thread on file I/O
+            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            {
+                string targetPath;
+                var targetLine = 0;
+                int? targetEndLine = null;
 
-            if (link.IsLocalAnchor)
-            {
-                // Local anchor - search in current file
-                targetPath = _currentFilePath;
-                targetLine = FindAnchorLine(_currentFilePath, link.AnchorName);
-            }
-            else
-            {
-                // Resolve the file path
-                var resolver = new FilePathResolver(_currentFilePath);
-                if (!resolver.TryResolve(link.FilePath, out targetPath))
+                if (link.IsLocalAnchor)
                 {
-                    // File not found - show message
-                    ShowStatusMessage($"File not found: {link.FilePath}");
-                    return;
+                    // Local anchor - search in current file
+                    targetPath = _currentFilePath;
+                    targetLine = await FindAnchorLineAsync(_currentFilePath, link.AnchorName).ConfigureAwait(false);
                 }
-
-                // Determine target line
-                if (link.HasLineNumber)
+                else
                 {
-                    targetLine = link.LineNumber.Value;
-                    if (link.HasLineRange)
+                    // Resolve the file path (this is fast, doesn't need async)
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    var resolver = new FilePathResolver(_currentFilePath);
+                    if (!resolver.TryResolve(link.FilePath, out targetPath))
                     {
-                        targetEndLine = link.EndLineNumber.Value;
+                        // File not found - show message
+                        ShowStatusMessage($"File not found: {link.FilePath}");
+                        return;
+                    }
+
+                    // Determine target line
+                    if (link.HasLineNumber)
+                    {
+                        targetLine = link.LineNumber.Value;
+                        if (link.HasLineRange)
+                        {
+                            targetEndLine = link.EndLineNumber.Value;
+                        }
+                    }
+                    else if (link.HasAnchor)
+                    {
+                        targetLine = await FindAnchorLineAsync(targetPath, link.AnchorName).ConfigureAwait(false);
                     }
                 }
-                else if (link.HasAnchor)
-                {
-                    targetLine = FindAnchorLine(targetPath, link.AnchorName);
-                }
-            }
 
-            // Navigate to the target
-            OpenFileAtLine(targetPath, targetLine, targetEndLine);
+                // Navigate to the target
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                OpenFileAtLine(targetPath, targetLine, targetEndLine);
+            }).FireAndForget();
         }
 
-        private int FindAnchorLine(string filePath, string anchorName)
+        private async Task<int> FindAnchorLineAsync(string filePath, string anchorName)
         {
             if (string.IsNullOrEmpty(anchorName))
             {
@@ -161,12 +169,13 @@ namespace CommentsVS.Handlers
                 }
             }
 
-            // Fallback: scan the file directly for the anchor
-            if (System.IO.File.Exists(filePath))
+            // Fallback: scan the file directly for the anchor on a background thread
+            if (File.Exists(filePath))
             {
                 try
                 {
-                    var lines = System.IO.File.ReadAllLines(filePath);
+                    // Read file asynchronously on background thread
+                    var lines = await Task.Run(() => File.ReadAllLines(filePath)).ConfigureAwait(false);
                     var anchorPattern = $"ANCHOR({anchorName})";
                     var anchorPatternAlt = $"ANCHOR[id={anchorName}]";
 
