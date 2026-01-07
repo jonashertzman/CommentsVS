@@ -25,14 +25,16 @@ namespace CommentsVS.Handlers
 
         private static CommandProgression ExecuteFormat(bool formatSelection)
         {
+            // Check sync-accessible option first to avoid unnecessary async work
+            if (!General.Instance.ReflowOnFormatDocument)
+            {
+                return CommandProgression.Continue;
+            }
+
+            // The intercept callback must return synchronously, so we use JoinableTaskFactory.Run
+            // but minimize async work by checking options synchronously first
             return ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
-                General options = await General.GetLiveInstanceAsync();
-                if (!options.ReflowOnFormatDocument)
-                {
-                    return CommandProgression.Continue;
-                }
-
                 DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
                 if (docView?.TextBuffer == null)
                 {
@@ -52,13 +54,14 @@ namespace CommentsVS.Handlers
 
                 try
                 {
-                    ReflowComments(buffer, textView, commentStyle, options, formatSelection);
-                    return CommandProgression.Continue;
+                    ReflowComments(buffer, textView, commentStyle, General.Instance, formatSelection);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    return CommandProgression.Continue;
+                    await ex.LogAsync();
                 }
+
+                return CommandProgression.Continue;
             });
         }
 

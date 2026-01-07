@@ -7,11 +7,9 @@ using System.Windows;
 using System.Windows.Input;
 using CommentsVS.Services;
 using CommentsVS.ToolWindows;
-using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
-using Microsoft.VisualStudio.TextManager.Interop;
 using Microsoft.VisualStudio.Utilities;
 
 namespace CommentsVS.Handlers
@@ -221,50 +219,43 @@ namespace CommentsVS.Handlers
                 return;
             }
 
-            ThreadHelper.JoinableTaskFactory.Run(async () =>
+            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
                 try
                 {
-                    // Open the file in VS
-                    VsShellUtilities.OpenDocument(
-                        ServiceProvider.GlobalProvider,
-                        filePath,
-                        Guid.Empty,
-                        out _,
-                        out _,
-                        out IVsWindowFrame windowFrame,
-                        out IVsTextView vsTextView);
-
-                    windowFrame?.Show();
+                    // Use toolkit to open the document
+                    DocumentView docView = await VS.Documents.OpenAsync(filePath);
+                    if (docView?.TextView == null)
+                    {
+                        return;
+                    }
 
                     // Navigate to line if specified
-                    if (vsTextView != null && lineNumber > 0)
+                    if (lineNumber > 0)
                     {
+                        ITextSnapshot snapshot = docView.TextBuffer.CurrentSnapshot;
+                        var targetLine = Math.Min(lineNumber - 1, snapshot.LineCount - 1);
+
                         if (endLineNumber.HasValue && endLineNumber.Value > lineNumber)
                         {
                             // Select the range from start line to end line
-                            var startLine = lineNumber - 1; // 0-based
-                            var endLine = endLineNumber.Value - 1; // 0-based
+                            var endLine = Math.Min(endLineNumber.Value - 1, snapshot.LineCount - 1);
 
-                            // Get the length of the last line to select to end of it
-                            vsTextView.GetBuffer(out IVsTextLines textLines);
-                            var endLineLength = 0;
-                            if (textLines != null)
-                            {
-                                textLines.GetLengthOfLine(endLine, out endLineLength);
-                            }
+                            ITextSnapshotLine startSnapshotLine = snapshot.GetLineFromLineNumber(targetLine);
+                            ITextSnapshotLine endSnapshotLine = snapshot.GetLineFromLineNumber(endLine);
 
-                            // Set selection from start of first line to end of last line
-                            vsTextView.SetSelection(startLine, 0, endLine, endLineLength);
-                            vsTextView.CenterLines(startLine, endLine - startLine + 1);
+                            var selectionSpan = new SnapshotSpan(startSnapshotLine.Start, endSnapshotLine.End);
+                            docView.TextView.Selection.Select(selectionSpan, isReversed: false);
+                            docView.TextView.ViewScroller.EnsureSpanVisible(selectionSpan, EnsureSpanVisibleOptions.AlwaysCenter);
                         }
                         else
                         {
                             // Single line - just position caret
-                            vsTextView.SetCaretPos(lineNumber - 1, 0);
-                            vsTextView.CenterLines(lineNumber - 1, 1);
+                            ITextSnapshotLine snapshotLine = snapshot.GetLineFromLineNumber(targetLine);
+                            docView.TextView.Caret.MoveTo(snapshotLine.Start);
+                            docView.TextView.ViewScroller.EnsureSpanVisible(
+                                new SnapshotSpan(snapshotLine.Start, 0),
+                                EnsureSpanVisibleOptions.AlwaysCenter);
                         }
                     }
                 }
@@ -273,7 +264,7 @@ namespace CommentsVS.Handlers
                     // File cannot be opened in VS text editor - open externally
                     OpenFileExternally(filePath);
                 }
-            });
+            }).FireAndForget();
         }
 
         private static void OpenFileExternally(string filePath)
@@ -294,15 +285,7 @@ namespace CommentsVS.Handlers
 
         private static void ShowStatusMessage(string message)
         {
-            ThreadHelper.JoinableTaskFactory.Run(async () =>
-            {
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-                if (ServiceProvider.GlobalProvider.GetService(typeof(SVsStatusbar)) is IVsStatusbar statusBar)
-                {
-                    statusBar.SetText(message);
-                }
-            });
+            VS.StatusBar.ShowMessageAsync(message).FireAndForget();
         }
 
         private void InitializeFilePath()
