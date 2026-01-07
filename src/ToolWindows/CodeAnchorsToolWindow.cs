@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -16,6 +17,7 @@ namespace CommentsVS.ToolWindows
         private readonly AnchorService _anchorService = new();
         private SolutionAnchorScanner _scanner;
         private SolutionAnchorCache _cache;
+        private AnchorScope _currentScope = AnchorScope.EntireSolution;
 
         /// <summary>
         /// Gets the current instance of the tool window (set after CreateAsync is called).
@@ -41,6 +43,11 @@ namespace CommentsVS.ToolWindows
         /// Gets a value indicating whether a scan is currently in progress.
         /// </summary>
         public bool IsScanning => _scanner?.IsScanning ?? false;
+
+        /// <summary>
+        /// Gets the current scope filter for anchors.
+        /// </summary>
+        public AnchorScope CurrentScope => _currentScope;
 
         public override string GetTitle(int toolWindowId) => "Code Anchors";
 
@@ -100,6 +107,18 @@ namespace CommentsVS.ToolWindows
             }
 
             await _scanner.ScanSolutionAsync();
+        }
+
+        /// <summary>
+        /// Sets the scope filter for the tool window.
+        /// </summary>
+        /// <param name="scope">The new scope to apply.</param>
+        public void SetScope(AnchorScope scope)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            _currentScope = scope;
+            RefreshAnchorsFromCache();
         }
 
         /// <summary>
@@ -289,8 +308,101 @@ namespace CommentsVS.ToolWindows
                 return;
             }
 
-            IReadOnlyList<AnchorItem> allAnchors = _cache.GetAllAnchors();
-            _control.UpdateAnchors(allAnchors);
+            ThreadHelper.JoinableTaskFactory.Run(async () =>
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                
+                IReadOnlyList<AnchorItem> allAnchors = _cache.GetAllAnchors();
+                IReadOnlyList<AnchorItem> filteredAnchors = await ApplyScopeFilterAsync(allAnchors);
+                _control.UpdateAnchors(filteredAnchors);
+            });
+        }
+
+        private async Task<IReadOnlyList<AnchorItem>> ApplyScopeFilterAsync(IReadOnlyList<AnchorItem> anchors)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            switch (_currentScope)
+            {
+                case AnchorScope.EntireSolution:
+                    return anchors;
+
+                case AnchorScope.CurrentProject:
+                    return await FilterByCurrentProjectAsync(anchors);
+
+                case AnchorScope.CurrentDocument:
+                    return await FilterByCurrentDocumentAsync(anchors);
+
+                case AnchorScope.OpenDocuments:
+                    return await FilterByOpenDocumentsAsync(anchors);
+
+                default:
+                    return anchors;
+            }
+        }
+
+        private async Task<IReadOnlyList<AnchorItem>> FilterByCurrentProjectAsync(IReadOnlyList<AnchorItem> anchors)
+        {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                
+                DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
+                if (docView?.FilePath == null)
+                {
+                    return anchors;
+                }
+
+                string projectName = await GetProjectNameForFileAsync(docView.FilePath);
+                if (string.IsNullOrEmpty(projectName))
+                {
+                    return anchors;
+                }
+
+                return anchors.Where(a => a.Project?.Equals(projectName, StringComparison.OrdinalIgnoreCase) == true).ToList();
+        }
+
+        private async Task<IReadOnlyList<AnchorItem>> FilterByCurrentDocumentAsync(IReadOnlyList<AnchorItem> anchors)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
+            
+            if (docView?.FilePath == null)
+            {
+                return new List<AnchorItem>();
+            }
+
+            return anchors.Where(a => a.FilePath?.Equals(docView.FilePath, StringComparison.OrdinalIgnoreCase) == true).ToList();
+        }
+
+        private async Task<IReadOnlyList<AnchorItem>> FilterByOpenDocumentsAsync(IReadOnlyList<AnchorItem> anchors)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            try
+            {
+                // Use DTE to get open documents
+                var dte = await VS.GetServiceAsync<EnvDTE.DTE, EnvDTE.DTE>();
+                if (dte?.Documents == null)
+                {
+                    return anchors;
+                }
+
+                var openPathsSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (EnvDTE.Document doc in dte.Documents)
+                {
+                    if (!string.IsNullOrEmpty(doc.FullName))
+                    {
+                        openPathsSet.Add(doc.FullName);
+                    }
+                }
+                
+                return anchors.Where(a => a.FilePath != null && openPathsSet.Contains(a.FilePath)).ToList();
+            }
+            catch
+            {
+                // Fall back to returning all anchors if we can't get open documents
+                return anchors;
+            }
         }
 
         private async Task NavigateToAnchorAsync(AnchorItem anchor)

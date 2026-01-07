@@ -50,11 +50,26 @@
       <Group guid="CommentsVS" id="CommentsSettingsGroup" priority="0x0300">
         <Parent guid="CommentsVS" id="CommentsSubMenu"/>
       </Group>
+      <!-- Code Anchors scope filter group -->
+      <Group guid="CommentsVS" id="CodeAnchorsScopeGroup" priority="0x0000">
+        <Parent guid="CommentsVS" id="CodeAnchorsToolbar"/>
+      </Group>
       <!-- Code Anchors toolbar button group -->
-      <Group guid="CommentsVS" id="CodeAnchorsToolbarGroup" priority="0x0000">
+      <Group guid="CommentsVS" id="CodeAnchorsToolbarGroup" priority="0x0100">
         <Parent guid="CommentsVS" id="CodeAnchorsToolbar"/>
       </Group>
     </Groups>
+
+    <Combos>
+      <!-- Scope Filter Combo for Code Anchors toolbar -->
+      <Combo guid="CommentsVS" id="ScopeFilterCombo" priority="0x0050" type="DropDownCombo" defaultWidth="130" idCommandList="ScopeFilterComboGetList">
+        <Parent guid="CommentsVS" id="CodeAnchorsScopeGroup"/>
+        <Strings>
+          <ButtonText>Entire Solution</ButtonText>
+          <CanonicalName>.CommentsVS.ScopeFilterCombo</CanonicalName>
+        </Strings>
+      </Combo>
+    </Combos>
 
     <Buttons>
       <!-- Toggle XML Comment Visibility -->
@@ -208,6 +223,7 @@
       <IDSymbol name="CommentsSettingsGroup" value="0x0007" />
       <IDSymbol name="CodeAnchorsToolbar" value="0x0008" />
       <IDSymbol name="CodeAnchorsToolbarGroup" value="0x0009" />
+      <IDSymbol name="CodeAnchorsScopeGroup" value="0x000B" />
       <IDSymbol name="ToggleCommentVisibility" value="0x0200" />
       <IDSymbol name="ToggleCollapseByDefault" value="0x0202" />
       <IDSymbol name="SetRenderingModeOff" value="0x0203" />
@@ -219,6 +235,8 @@
       <IDSymbol name="PreviousAnchor" value="0x0209" />
       <IDSymbol name="RefreshAnchors" value="0x020A" />
       <IDSymbol name="ToggleGroupByFile" value="0x020B" />
+      <IDSymbol name="ScopeFilterCombo" value="0x020C" />
+      <IDSymbol name="ScopeFilterComboGetList" value="0x020D" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

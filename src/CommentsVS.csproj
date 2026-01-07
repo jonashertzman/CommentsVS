@@ -58,6 +58,7 @@
     <Compile Include="Commands\OpenSettingsCommand.cs" />
     <Compile Include="Commands\PreviousAnchorCommand.cs" />
     <Compile Include="Commands\RefreshAnchorsCommand.cs" />
+    <Compile Include="Commands\ScopeFilterComboCommand.cs" />
     <Compile Include="Commands\SetRenderingModeCommand.cs" />
     <Compile Include="Commands\ShowCodeAnchorsCommand.cs" />
     <Compile Include="Commands\ToggleCollapseByDefaultCommand.cs" />
@@ -100,6 +101,7 @@
     <Compile Include="Tagging\XmlDocCommentOutliningTagger.cs" />
     <Compile Include="ToolWindows\AnchorCacheSerializer.cs" />
     <Compile Include="ToolWindows\AnchorItem.cs" />
+    <Compile Include="ToolWindows\AnchorScope.cs" />
     <Compile Include="ToolWindows\AnchorService.cs" />
     <Compile Include="ToolWindows\AnchorType.cs" />
     <Compile Include="ToolWindows\CodeAnchorsControl.xaml.cs">

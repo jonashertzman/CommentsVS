@@ -4,6 +4,8 @@ global using Microsoft.VisualStudio.Shell;
 global using Task = System.Threading.Tasks.Task;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.ComponentModel.Design;
+using CommentsVS.Commands;
 using CommentsVS.Handlers;
 using CommentsVS.Options;
 using CommentsVS.ToolWindows;
@@ -26,6 +28,15 @@ namespace CommentsVS
             await this.RegisterCommandsAsync();
             this.RegisterToolWindows();
             await FormatDocumentHandler.RegisterAsync();
+
+            // Switch to main thread to register combo box command
+            await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            
+            // Register the scope filter combo box command
+            if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commandService)
+            {
+                ScopeFilterComboCommand.Initialize(this, commandService);
+            }
         }
     }
 }
