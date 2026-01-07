@@ -7,11 +7,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommentsVS.Options;
 using CommentsVS.Services;
+using CommentsVS.ToolWindows;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Adornments;
 using Microsoft.VisualStudio.Utilities;
+
 
 namespace CommentsVS.QuickInfo
 {
@@ -231,11 +233,7 @@ namespace CommentsVS.QuickInfo
             }
 
             // Add clickable action link based on tag type (skip for LINK which is just navigation syntax)
-            if (tag == "LINK")
-            {
-                // No action link for LINK - it's just a navigation syntax, not a trackable anchor
-            }
-            else if (tag == "ANCHOR")
+            if (tag != "LINK")
             {
                 // Blank line before link
                 elements.Add(new ClassifiedTextElement(
@@ -244,21 +242,12 @@ namespace CommentsVS.QuickInfo
                 elements.Add(new ClassifiedTextElement(
                     new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Open Code Anchors", () =>
                     {
-                        VS.Commands.ExecuteAsync("View.OtherWindows.CodeAnchors").FireAndForget();
+                        CodeAnchorsToolWindow.ShowAsync().FireAndForget();
                     })));
             }
-            else
-            {
-                // Blank line before link
-                elements.Add(new ClassifiedTextElement(
-                    new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, string.Empty)));
 
-                elements.Add(new ClassifiedTextElement(
-                    new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Open Task List", () =>
-                    {
-                        VS.Commands.ExecuteAsync("View.TaskList").FireAndForget();
-                    })));
-            }
+
+
 
             return new ContainerElement(ContainerElementStyle.Stacked, elements);
         }
