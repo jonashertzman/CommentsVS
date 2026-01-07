@@ -139,13 +139,32 @@ namespace CommentsVS.Services
         }
 
         /// <summary>
-        /// Gets repository info synchronously for scenarios where async isn't possible (e.g., ITagger.GetTags).
-        /// This blocks the calling thread - prefer GetRepositoryInfoAsync when possible.
-        /// Uses JoinableTaskFactory to properly handle UI thread transitions.
+        /// Tries to get cached repository info without blocking.
+        /// Returns null if the info is not yet cached (call GetRepositoryInfoAsync to fetch it).
+        /// Use this from synchronous contexts like ITagger.GetTags to avoid UI thread blocking.
         /// </summary>
-        internal static GitRepositoryInfo GetRepositoryInfoSync(string filePath)
+        public static GitRepositoryInfo TryGetCachedRepositoryInfo(string filePath)
         {
-            return ThreadHelper.JoinableTaskFactory.Run(() => GetRepositoryInfoAsync(filePath));
+            if (string.IsNullOrEmpty(filePath))
+            {
+                return null;
+            }
+
+            try
+            {
+                var gitDir = FindGitDirectory(filePath);
+                if (gitDir == null)
+                {
+                    return null;
+                }
+
+                _repoCache.TryGetValue(gitDir, out GitRepositoryInfo cachedInfo);
+                return cachedInfo;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static async Task<GitRepositoryInfo> ReadAndCacheRepositoryInfoAsync(string gitDir)

@@ -29,37 +29,30 @@ namespace CommentsVS.QuickInfo
     /// </summary>
     internal sealed class IssueReferenceQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickInfoSource
     {
-        private GitRepositoryInfo _repoInfo;
-        private bool _repoInfoInitialized;
-
         private static readonly Regex _issueReferenceRegex = new(
             @"#(?<number>\d+)\b",
             RegexOptions.Compiled);
 
-        public Task<QuickInfoItem> GetQuickInfoItemAsync(
+        public async Task<QuickInfoItem> GetQuickInfoItemAsync(
             IAsyncQuickInfoSession session,
             CancellationToken cancellationToken)
         {
             if (!General.Instance.EnableIssueLinks)
             {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
 
             SnapshotPoint? triggerPoint = session.GetTriggerPoint(textBuffer.CurrentSnapshot);
             if (!triggerPoint.HasValue)
             {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
 
-            // Initialize repo info lazily
-            if (!_repoInfoInitialized)
+            // Get repo info asynchronously
+            GitRepositoryInfo repoInfo = await GetRepoInfoAsync().ConfigureAwait(false);
+            if (repoInfo == null)
             {
-                InitializeRepoInfo();
-            }
-
-            if (_repoInfo == null)
-            {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
 
             ITextSnapshotLine line = triggerPoint.Value.GetContainingLine();
@@ -88,7 +81,7 @@ namespace CommentsVS.QuickInfo
 
             if (!isInComment)
             {
-                return Task.FromResult<QuickInfoItem>(null);
+                return null;
             }
 
             // Find issue references in the comment portion
@@ -102,23 +95,23 @@ namespace CommentsVS.QuickInfo
                 {
                     if (int.TryParse(match.Groups["number"].Value, out var issueNumber))
                     {
-                        var url = _repoInfo.GetIssueUrl(issueNumber);
+                        var url = repoInfo.GetIssueUrl(issueNumber);
                         if (!string.IsNullOrEmpty(url))
                         {
                             var span = new SnapshotSpan(line.Start + matchStartInLine, match.Length);
                             ITrackingSpan trackingSpan = textBuffer.CurrentSnapshot.CreateTrackingSpan(
                                 span, SpanTrackingMode.EdgeInclusive);
 
-                            var providerName = GetProviderName(_repoInfo.Provider);
+                            var providerName = GetProviderName(repoInfo.Provider);
                             var tooltip = $"{providerName} Issue #{issueNumber}\n{url}\n\nCtrl+Click to open";
 
-                            return Task.FromResult(new QuickInfoItem(trackingSpan, tooltip));
+                            return new QuickInfoItem(trackingSpan, tooltip);
                         }
                     }
                 }
             }
 
-            return Task.FromResult<QuickInfoItem>(null);
+            return null;
         }
 
         private static string GetProviderName(GitHostingProvider provider)
@@ -133,14 +126,14 @@ namespace CommentsVS.QuickInfo
             };
         }
 
-        private void InitializeRepoInfo()
+        private async Task<GitRepositoryInfo> GetRepoInfoAsync()
         {
-            _repoInfoInitialized = true;
-
             if (textBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
             {
-                _repoInfo = GitRepositoryService.GetRepositoryInfoSync(document.FilePath);
+                return await GitRepositoryService.GetRepositoryInfoAsync(document.FilePath).ConfigureAwait(false);
             }
+
+            return null;
         }
 
         /// <summary>

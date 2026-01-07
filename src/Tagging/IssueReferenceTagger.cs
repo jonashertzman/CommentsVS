@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using CommentsVS.Options;
 using CommentsVS.Services;
 using Microsoft.VisualStudio.Text;
@@ -37,6 +38,7 @@ namespace CommentsVS.Tagging
         private readonly ITextBuffer _buffer;
         private GitRepositoryInfo _repoInfo;
         private bool _repoInfoInitialized;
+        private string _filePath;
 
         /// <summary>
         /// Maximum file size (in characters) to process. Files larger than this are skipped for performance.
@@ -55,6 +57,14 @@ namespace CommentsVS.Tagging
         {
             _buffer = buffer;
             _buffer.Changed += OnBufferChanged;
+
+            // Get file path and trigger async initialization
+            if (_buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+            {
+                _filePath = document.FilePath;
+                // Fire and forget - triggers async fetch, results will be available on subsequent GetTags calls
+                InitializeRepoInfoAsync().FireAndForget();
+            }
         }
 
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
@@ -85,10 +95,14 @@ namespace CommentsVS.Tagging
                 yield break;
             }
 
-            // Initialize repo info lazily
+            // Try to get cached repo info (non-blocking)
             if (!_repoInfoInitialized)
             {
-                InitializeRepoInfo();
+                _repoInfo = GitRepositoryService.TryGetCachedRepositoryInfo(_filePath);
+                if (_repoInfo != null)
+                {
+                    _repoInfoInitialized = true;
+                }
             }
 
             if (_repoInfo == null)
@@ -215,13 +229,22 @@ namespace CommentsVS.Tagging
             return quoteCount % 2 == 1;
         }
 
-        private void InitializeRepoInfo()
+        private async Task InitializeRepoInfoAsync()
         {
+            if (string.IsNullOrEmpty(_filePath))
+            {
+                return;
+            }
+
+            _repoInfo = await GitRepositoryService.GetRepositoryInfoAsync(_filePath).ConfigureAwait(false);
             _repoInfoInitialized = true;
 
-            if (_buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+            // Trigger re-tagging now that repo info is available
+            if (_repoInfo != null)
             {
-                _repoInfo = GitRepositoryService.GetRepositoryInfoSync(document.FilePath);
+                ITextSnapshot snapshot = _buffer.CurrentSnapshot;
+                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
+                    new SnapshotSpan(snapshot, 0, snapshot.Length)));
             }
         }
     }

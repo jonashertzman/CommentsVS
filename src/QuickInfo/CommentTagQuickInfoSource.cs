@@ -111,7 +111,7 @@ namespace CommentsVS.QuickInfo
 
                         // Parse metadata from the original line text, adjusting match position
                         IReadOnlyList<CommentTagMetadataItem> metadata = TryParseMetadata(lineText, commentStartInLine, match);
-                        GitRepositoryInfo repoInfo = GetRepoInfo();
+                        GitRepositoryInfo repoInfo = await GetRepoInfoAsync().ConfigureAwait(false);
                         ContainerElement content = CreateQuickInfoContent(tag, title, description, metadata, repoInfo);
 
                         return new QuickInfoItem(trackingSpan, content);
@@ -161,11 +161,11 @@ namespace CommentsVS.QuickInfo
         {
         }
 
-        private GitRepositoryInfo GetRepoInfo()
+        private async Task<GitRepositoryInfo> GetRepoInfoAsync()
         {
             if (textBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
             {
-                return GitRepositoryService.GetRepositoryInfoSync(document.FilePath);
+                return await GitRepositoryService.GetRepositoryInfoAsync(document.FilePath).ConfigureAwait(false);
             }
 
             return null;

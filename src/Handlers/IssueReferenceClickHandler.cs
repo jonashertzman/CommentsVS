@@ -1,6 +1,7 @@
 using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using CommentsVS.Options;
@@ -33,6 +34,8 @@ namespace CommentsVS.Handlers
     {
         private GitRepositoryInfo _repoInfo;
         private bool _repoInfoInitialized;
+        private string _filePath;
+        private bool _asyncInitStarted;
 
         private static readonly Regex _issueReferenceRegex = new(
             @"#(?<number>\d+)\b",
@@ -55,7 +58,7 @@ namespace CommentsVS.Handlers
                 return;
             }
 
-            // Initialize repo info lazily
+            // Initialize repo info lazily (non-blocking)
             if (!_repoInfoInitialized)
             {
                 InitializeRepoInfo();
@@ -134,12 +137,44 @@ namespace CommentsVS.Handlers
 
         private void InitializeRepoInfo()
         {
-            _repoInfoInitialized = true;
-
-            if (textView.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+            // Get file path if not already cached
+            if (_filePath == null && textView.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
             {
-                _repoInfo = GitRepositoryService.GetRepositoryInfoSync(document.FilePath);
+                _filePath = document.FilePath;
             }
+
+            if (string.IsNullOrEmpty(_filePath))
+            {
+                _repoInfoInitialized = true;
+                return;
+            }
+
+            // Try to get from cache first (non-blocking)
+            _repoInfo = GitRepositoryService.TryGetCachedRepositoryInfo(_filePath);
+            if (_repoInfo != null)
+            {
+                _repoInfoInitialized = true;
+                return;
+            }
+
+            // If not in cache, trigger async fetch (fire and forget)
+            // Next Ctrl+Click will find it in cache
+            if (!_asyncInitStarted)
+            {
+                _asyncInitStarted = true;
+                InitializeRepoInfoAsync().FireAndForget();
+            }
+        }
+
+        private async Task InitializeRepoInfoAsync()
+        {
+            if (string.IsNullOrEmpty(_filePath))
+            {
+                return;
+            }
+
+            _repoInfo = await GitRepositoryService.GetRepositoryInfoAsync(_filePath).ConfigureAwait(false);
+            _repoInfoInitialized = true;
         }
     }
 }
