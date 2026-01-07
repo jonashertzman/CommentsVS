@@ -198,7 +198,7 @@ Example:
 // Regular comment without prefix stays normal
 ```
 
-Each prefix type can be individually enabled/disabled in **Tools > Options > CommentsVS > Comment Prefix Highlighting**. Colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment - [Type]" entries.
+The feature can be enabled/disabled in **Tools > Options > CommentsVS > Comment Tags**. Colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment - [Type]" entries.
 
 Works with `//` (C#), `#` (Python, PowerShell), and `'` (VB.NET) comment styles.
 
@@ -331,21 +331,9 @@ Configure the extension behavior via **Tools > Options > CommentsVS**.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Enable Comment Tag Highlighting | On | Enable/disable tag highlighting |
+| Enable Prefix Highlighting | On | Enable/disable prefix-based comment highlighting (Better Comments style) |
 
-Tag colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment Tag - [TAG]" entries.
-
-### Comment Prefix Highlighting
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Enable Prefix Highlighting | On | Enable/disable prefix-based comment highlighting |
-| Alert prefix (!) | On | Highlight `// !` comments as alerts |
-| Query prefix (?) | On | Highlight `// ?` comments as questions |
-| Important prefix (*) | On | Highlight `// *` comments as important |
-| Strikethrough prefix (//) | On | Style `// //` comments with strikethrough |
-| Disabled prefix (-) | On | Highlight `// -` comments as disabled |
-| Quote prefix (>) | On | Highlight `// >` comments as quotes |
-
-Prefix colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment - [Type]" entries.
+Tag colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment Tag - [TAG]" entries. Prefix colors can be customized under "Comment - [Type]" entries.
 
 ### Code Anchors
 | Setting | Default | Description |

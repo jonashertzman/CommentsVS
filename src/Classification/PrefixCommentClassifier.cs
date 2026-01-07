@@ -99,37 +99,37 @@ namespace CommentsVS.Classification
                 }
 
                 var marker = markerGroup.Value;
-                IClassificationType classificationType = GetClassificationType(marker, options);
+                                IClassificationType classificationType = GetClassificationType(marker);
 
-                if (classificationType != null && contentGroup.Success)
-                {
-                    // Classify the marker and the content together
-                    int startIndex = markerGroup.Index;
-                    int length = (contentGroup.Index + contentGroup.Length) - markerGroup.Index;
+                                if (classificationType != null && contentGroup.Success)
+                                {
+                                    // Classify the marker and the content together
+                                    int startIndex = markerGroup.Index;
+                                    int length = (contentGroup.Index + contentGroup.Length) - markerGroup.Index;
 
-                    if (length > 0)
-                    {
-                        var prefixSpan = new SnapshotSpan(span.Snapshot, lineStart + startIndex, length);
-                        result.Add(new ClassificationSpan(prefixSpan, classificationType));
+                                    if (length > 0)
+                                    {
+                                        var prefixSpan = new SnapshotSpan(span.Snapshot, lineStart + startIndex, length);
+                                        result.Add(new ClassificationSpan(prefixSpan, classificationType));
+                                    }
+                                }
+                            }
+
+                            return result;
+                        }
+
+                        private IClassificationType GetClassificationType(string marker)
+                        {
+                            return marker switch
+                            {
+                                "!" => _alertType,
+                                "?" => _queryType,
+                                "*" => _importantType,
+                                "//" => _strikethroughType,
+                                "-" => _disabledType,
+                                ">" => _quoteType,
+                                _ => null
+                            };
+                        }
                     }
                 }
-            }
-
-            return result;
-        }
-
-        private IClassificationType GetClassificationType(string marker, General options)
-        {
-            return marker switch
-            {
-                "!" when options.EnableAlertPrefix => _alertType,
-                "?" when options.EnableQueryPrefix => _queryType,
-                "*" when options.EnableImportantPrefix => _importantType,
-                "//" when options.EnableStrikethroughPrefix => _strikethroughType,
-                "-" when options.EnableDisabledPrefix => _disabledType,
-                ">" when options.EnableQuotePrefix => _quoteType,
-                _ => null
-            };
-        }
-    }
-}

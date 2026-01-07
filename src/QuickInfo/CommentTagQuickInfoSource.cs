@@ -34,11 +34,11 @@ namespace CommentsVS.QuickInfo
     internal sealed class CommentTagQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickInfoSource
     {
         private static readonly Regex _commentTagRegex = new(
-            @"\b(?<tag>TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW)\b:?",
+            @"\b(?<tag>TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW|ANCHOR|LINK)\b:?",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         private static readonly Regex _metadataRegex = new(
-            @"(?<tag>TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW)(?:\s*(?:\((?<metaParen>[^)]*)\)|\[(?<metaBracket>[^\]]*)\]))?\s*: ?",
+            @"(?<tag>TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW|ANCHOR)(?:\s*(?:\((?<metaParen>[^)]*)\)|\[(?<metaBracket>[^\]]*)\]))?\s*: ?",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         private static readonly Regex _commentLineRegex = new(
@@ -88,7 +88,7 @@ namespace CommentsVS.QuickInfo
 
                         IReadOnlyList<CommentTagMetadataItem> metadata = TryParseMetadata(lineText, match);
                         GitRepositoryInfo repoInfo = GetRepoInfo();
-                        ContainerElement content = CreateQuickInfoContent(title, description, metadata, repoInfo);
+                        ContainerElement content = CreateQuickInfoContent(tag, title, description, metadata, repoInfo);
 
                         return new QuickInfoItem(trackingSpan, content);
                     }
@@ -123,6 +123,12 @@ namespace CommentsVS.QuickInfo
                 "REVIEW" => ("REVIEW - Needs code review",
                              "Flags code that requires review or discussion before being finalized. " +
                              "Use for uncertain implementations or code needing a second opinion."),
+                "ANCHOR" => ("ANCHOR - Named navigation point",
+                             "Creates a named location in your code that can be referenced from other files. " +
+                             "Use with LINK to build a navigation system within your codebase."),
+                "LINK" => ("LINK - File or anchor reference",
+                           "Creates a clickable link to another file, line number, or named anchor. " +
+                           "Ctrl+Click to navigate to the target location."),
                 _ => (null, null),
             };
         }
@@ -141,7 +147,7 @@ namespace CommentsVS.QuickInfo
             return null;
         }
 
-        private static ContainerElement CreateQuickInfoContent(string title, string description, IReadOnlyList<CommentTagMetadataItem> metadata, GitRepositoryInfo repoInfo)
+        private static ContainerElement CreateQuickInfoContent(string tag, string title, string description, IReadOnlyList<CommentTagMetadataItem> metadata, GitRepositoryInfo repoInfo)
         {
             const int MaxLineLength = 60;
 
@@ -202,16 +208,35 @@ namespace CommentsVS.QuickInfo
                     new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, line)));
             }
 
-            // Blank line before link
-            elements.Add(new ClassifiedTextElement(
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, string.Empty)));
+            // Add clickable action link based on tag type (skip for LINK which is just navigation syntax)
+            if (tag == "LINK")
+            {
+                // No action link for LINK - it's just a navigation syntax, not a trackable anchor
+            }
+            else if (tag == "ANCHOR")
+            {
+                // Blank line before link
+                elements.Add(new ClassifiedTextElement(
+                    new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, string.Empty)));
 
-            // Add clickable "Open Task List" link
-            elements.Add(new ClassifiedTextElement(
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Open Task List", () =>
-                {
-                    VS.Commands.ExecuteAsync("View.TaskList").FireAndForget();
-                })));
+                elements.Add(new ClassifiedTextElement(
+                    new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Open Code Anchors", () =>
+                    {
+                        VS.Commands.ExecuteAsync("View.OtherWindows.CodeAnchors").FireAndForget();
+                    })));
+            }
+            else
+            {
+                // Blank line before link
+                elements.Add(new ClassifiedTextElement(
+                    new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, string.Empty)));
+
+                elements.Add(new ClassifiedTextElement(
+                    new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Open Task List", () =>
+                    {
+                        VS.Commands.ExecuteAsync("View.TaskList").FireAndForget();
+                    })));
+            }
 
             return new ContainerElement(ContainerElementStyle.Stacked, elements);
         }

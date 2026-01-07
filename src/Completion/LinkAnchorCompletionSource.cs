@@ -30,6 +30,39 @@ namespace CommentsVS.Completion
         }
     }
 
+    [Export(typeof(IAsyncCompletionCommitManagerProvider))]
+    [ContentType("code")]
+    [Name("LinkAnchorCompletionCommitManager")]
+    internal sealed class LinkAnchorCompletionCommitManagerProvider : IAsyncCompletionCommitManagerProvider
+    {
+        public IAsyncCompletionCommitManager GetOrCreate(ITextView textView)
+        {
+            return textView.Properties.GetOrCreateSingletonProperty(
+                () => new LinkAnchorCompletionCommitManager());
+        }
+    }
+
+    /// <summary>
+    /// Handles commit behavior for LINK anchor completions.
+    /// </summary>
+    internal sealed class LinkAnchorCompletionCommitManager : IAsyncCompletionCommitManager
+    {
+        public IEnumerable<char> PotentialCommitCharacters => null;
+
+        public bool ShouldCommitCompletion(IAsyncCompletionSession session, SnapshotPoint location, char typedChar, CancellationToken token)
+        {
+            // Use default commit behavior
+            return false;
+        }
+
+        public CommitResult TryCommit(IAsyncCompletionSession session, ITextBuffer buffer, CompletionItem item, char typedChar, CancellationToken token)
+        {
+            // Let VS handle the default commit behavior
+            // This will replace the applicable span (entire path from LINK: to cursor) with item.InsertText
+            return CommitResult.Unhandled;
+        }
+    }
+
     /// <summary>
     /// Provides IntelliSense completions for LINK anchors, including file paths and anchor names.
     /// </summary>
@@ -105,15 +138,33 @@ namespace CommentsVS.Completion
             var currentText = applicableToSpan.GetText();
             var items = new List<CompletionItem>();
 
-            // If starting with #, provide anchor completions
-            if (currentText.StartsWith("#"))
+            // Get the full text from LINK: to cursor for path context
+            ITextSnapshotLine line = triggerLocation.GetContainingLine();
+            var lineText = line.GetText();
+            var positionInLine = triggerLocation.Position - line.Start.Position;
+            var textBeforeCursor = lineText.Substring(0, positionInLine);
+            
+            // Find LINK: and extract the full path context
+            var linkIndex = textBeforeCursor.LastIndexOf("LINK", System.StringComparison.OrdinalIgnoreCase);
+            if (linkIndex >= 0)
             {
-                items.AddRange(GetAnchorCompletions(currentText.TrimStart('#')));
-            }
-            else
-            {
-                // Provide file path completions
-                items.AddRange(GetFilePathCompletions(currentText));
+                var afterLink = linkIndex + 4;
+                while (afterLink < textBeforeCursor.Length && (textBeforeCursor[afterLink] == ':' || textBeforeCursor[afterLink] == ' '))
+                {
+                    afterLink++;
+                }
+                var fullPathContext = textBeforeCursor.Substring(afterLink);
+
+                // If starting with #, provide anchor completions
+                if (fullPathContext.StartsWith("#"))
+                {
+                    items.AddRange(GetAnchorCompletions(currentText.TrimStart('#')));
+                }
+                else
+                {
+                    // Provide file path completions with full context
+                    items.AddRange(GetFilePathCompletions(fullPathContext, currentText));
+                }
             }
 
             if (items.Count == 0)
@@ -130,7 +181,7 @@ namespace CommentsVS.Completion
             return Task.FromResult<object>(item.Suffix ?? item.DisplayText);
         }
 
-        private IEnumerable<CompletionItem> GetFilePathCompletions(string partialPath)
+        private IEnumerable<CompletionItem> GetFilePathCompletions(string fullPathContext, string filterText)
         {
             if (string.IsNullOrEmpty(_currentDirectory))
             {
@@ -141,26 +192,31 @@ namespace CommentsVS.Completion
             var prefix = "";
 
             // Handle relative path prefixes
-            if (partialPath.StartsWith("./") || partialPath.StartsWith(".\\"))
+            if (fullPathContext.StartsWith("./") || fullPathContext.StartsWith(".\\"))
             {
-                partialPath = partialPath.Substring(2);
+                fullPathContext = fullPathContext.Substring(2);
                 prefix = "./";
             }
-            else if (partialPath.StartsWith("../") || partialPath.StartsWith("..\\"))
+            else if (fullPathContext.StartsWith("../") || fullPathContext.StartsWith("..\\"))
             {
                 searchDirectory = Path.GetDirectoryName(_currentDirectory);
-                partialPath = partialPath.Substring(3);
+                fullPathContext = fullPathContext.Substring(3);
                 prefix = "../";
             }
 
-            // If there's a path separator in the partial path, navigate to that directory
-            var lastSep = partialPath.LastIndexOfAny(['/', '\\']);
+            // If there's a path separator in the full path context, navigate to that directory
+            var lastSep = fullPathContext.LastIndexOfAny(['/', '\\']);
+            string partialName = "";
             if (lastSep >= 0)
             {
-                var subDir = partialPath.Substring(0, lastSep);
-                partialPath = partialPath.Substring(lastSep + 1);
+                var subDir = fullPathContext.Substring(0, lastSep);
+                partialName = fullPathContext.Substring(lastSep + 1);
                 searchDirectory = Path.Combine(searchDirectory, subDir);
                 prefix += subDir + "/";
+            }
+            else
+            {
+                partialName = fullPathContext;
             }
 
             if (!Directory.Exists(searchDirectory))
@@ -177,40 +233,42 @@ namespace CommentsVS.Completion
                     continue;
                 }
 
-                if (string.IsNullOrEmpty(partialPath) ||
-                    dirName.StartsWith(partialPath, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    yield return new CompletionItem(
-                        dirName + "/",
-                        this,
-                        _folderIcon,
-                        ImmutableArray<CompletionFilter>.Empty,
-                        prefix + dirName + "/",
-                        prefix + dirName + "/",
-                        dirName,
-                        dirName,
-                        ImmutableArray<ImageElement>.Empty);
+                if (string.IsNullOrEmpty(partialName) ||
+                        dirName.StartsWith(partialName, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        var insertText = prefix + dirName + "/";
+                        yield return new CompletionItem(
+                            displayText: dirName + "/",
+                            source: this,
+                            icon: _folderIcon,
+                            filters: ImmutableArray<CompletionFilter>.Empty,
+                            suffix: insertText,
+                            insertText: insertText,
+                            sortText: insertText,
+                            filterText: insertText,
+                            attributeIcons: ImmutableArray<ImageElement>.Empty);
+                    }
                 }
-            }
 
-            // List files
-            foreach (var file in SafeGetFiles(searchDirectory))
-            {
-                var fileName = Path.GetFileName(file);
-                if (string.IsNullOrEmpty(partialPath) ||
-                    fileName.StartsWith(partialPath, System.StringComparison.OrdinalIgnoreCase))
+                // List files
+                foreach (var file in SafeGetFiles(searchDirectory))
                 {
-                    yield return new CompletionItem(
-                        fileName,
-                        this,
-                        _fileIcon,
-                        ImmutableArray<CompletionFilter>.Empty,
-                        prefix + fileName,
-                        prefix + fileName,
-                        fileName,
-                        fileName,
-                        ImmutableArray<ImageElement>.Empty);
-                }
+                    var fileName = Path.GetFileName(file);
+                    if (string.IsNullOrEmpty(partialName) ||
+                        fileName.StartsWith(partialName, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        var insertText = prefix + fileName;
+                        yield return new CompletionItem(
+                            displayText: fileName,
+                            source: this,
+                            icon: _fileIcon,
+                            filters: ImmutableArray<CompletionFilter>.Empty,
+                            suffix: insertText,
+                            insertText: insertText,
+                            sortText: insertText,
+                            filterText: insertText,
+                            attributeIcons: ImmutableArray<ImageElement>.Empty);
+                    }
             }
         }
 
@@ -248,15 +306,15 @@ namespace CommentsVS.Completion
                 var description = $"{anchor.FileName}:{anchor.LineNumber}";
 
                 yield return new CompletionItem(
-                    displayText,
-                    this,
-                    _anchorIcon,
-                    ImmutableArray<CompletionFilter>.Empty,
-                    displayText,
-                    displayText,
-                    anchor.AnchorId,
-                    description,
-                    ImmutableArray<ImageElement>.Empty);
+                    displayText: displayText,
+                    source: this,
+                    icon: _anchorIcon,
+                    filters: ImmutableArray<CompletionFilter>.Empty,
+                    suffix: description,
+                    insertText: displayText,
+                    sortText: anchor.AnchorId,
+                    filterText: anchor.AnchorId,
+                    attributeIcons: ImmutableArray<ImageElement>.Empty);
             }
         }
 
