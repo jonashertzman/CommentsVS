@@ -12,7 +12,10 @@ namespace CommentsVS.Services
         /// <summary>
         /// Maximum file size (in characters) to process. Files larger than this are skipped for performance.
         /// </summary>
-        public const int MaxFileSize = 150_000;
+        /// <remarks>
+        /// This property is an alias for <see cref="Constants.MaxFileSize"/> for backward compatibility.
+        /// </remarks>
+        public static int MaxFileSize => Constants.MaxFileSize;
 
         private readonly object _lock = new();
         private ITextSnapshot _cachedSnapshot;

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Text.RegularExpressions;
+using CommentsVS.Services;
 using Microsoft.VisualStudio.Text;
 
 namespace CommentsVS.ToolWindows
@@ -12,19 +13,6 @@ namespace CommentsVS.ToolWindows
     [PartCreationPolicy(CreationPolicy.Shared)]
     public class AnchorService
     {
-        /// <summary>
-        /// All anchor keywords for detection.
-        /// </summary>
-        private static readonly string[] _anchorKeywords = ["TODO", "HACK", "NOTE", "BUG", "FIXME", "UNDONE", "REVIEW", "ANCHOR"];
-
-        /// <summary>
-        /// Regex to match anchors in comments. Captures the anchor keyword and optional trailing colon.
-        /// Supports C-style (// and /* */), VB-style ('), and HTML-style (<!-- -->) comments.
-        /// </summary>
-        private static readonly Regex _anchorRegex = new(
-            @"(?<prefix>//|/\*|'|<!--)\s*(?<tag>\b(?:TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW|ANCHOR)\b)\s*(?<metadata>(?:\([^)]*\)|\[[^\]]*\]))?\s*:?\s*(?<message>.*?)(?:\*/|-->|$)",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
         /// <summary>
         /// Regex to extract owner from metadata (e.g., @mads from (@mads) or [@mads]).
         /// </summary>
@@ -60,7 +48,7 @@ namespace CommentsVS.ToolWindows
 
             // Fast pre-check: skip if no anchor keywords are present
             var hasAnyAnchor = false;
-            foreach (var keyword in _anchorKeywords)
+            foreach (var keyword in Constants.AnchorKeywords)
             {
                 if (fullText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
@@ -82,7 +70,7 @@ namespace CommentsVS.ToolWindows
 
                 // Fast pre-check for this line
                 var lineHasAnchor = false;
-                foreach (var keyword in _anchorKeywords)
+                foreach (var keyword in Constants.AnchorKeywords)
                 {
                     if (lineText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
@@ -96,7 +84,7 @@ namespace CommentsVS.ToolWindows
                     continue;
                 }
 
-                foreach (Match match in _anchorRegex.Matches(lineText))
+                foreach (Match match in CommentPatterns.AnchorServiceRegex.Matches(lineText))
                 {
                     Group tagGroup = match.Groups["tag"];
                     if (!tagGroup.Success)
@@ -159,7 +147,7 @@ namespace CommentsVS.ToolWindows
 
             // Fast pre-check: skip if no anchor keywords are present
             var hasAnyAnchor = false;
-            foreach (var keyword in _anchorKeywords)
+            foreach (var keyword in Constants.AnchorKeywords)
             {
                 if (text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
@@ -181,7 +169,7 @@ namespace CommentsVS.ToolWindows
 
                 // Fast pre-check for this line
                 var lineHasAnchor = false;
-                foreach (var keyword in _anchorKeywords)
+                foreach (var keyword in Constants.AnchorKeywords)
                 {
                     if (lineText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
@@ -195,7 +183,7 @@ namespace CommentsVS.ToolWindows
                     continue;
                 }
 
-                foreach (Match match in _anchorRegex.Matches(lineText))
+                foreach (Match match in CommentPatterns.AnchorServiceRegex.Matches(lineText))
                 {
                     Group tagGroup = match.Groups["tag"];
                     if (!tagGroup.Success)

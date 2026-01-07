@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using CommentsVS.Options;
 using CommentsVS.Services;
 using Microsoft.VisualStudio.Text;
@@ -38,13 +37,8 @@ namespace CommentsVS.Tagging
         private readonly ITextBuffer _buffer;
         private GitRepositoryInfo _repoInfo;
         private bool _repoInfoInitialized;
-        private string _filePath;
+        private readonly string _filePath;
         private bool _disposed;
-
-        /// <summary>
-        /// Maximum file size (in characters) to process. Files larger than this are skipped for performance.
-        /// </summary>
-        private const int _maxFileSize = 150_000;
 
         // Match #123 pattern (issue/PR number) - must be preceded by whitespace or start of line
         // and followed by word boundary
@@ -91,7 +85,7 @@ namespace CommentsVS.Tagging
             }
 
             // Skip large files for performance
-            if (spans[0].Snapshot.Length > _maxFileSize)
+            if (spans[0].Snapshot.Length > Constants.MaxFileSize)
             {
                 yield break;
             }

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using CommentsVS.Options;
+using CommentsVS.Services;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 
@@ -17,27 +17,6 @@ namespace CommentsVS.Classification
 
         private readonly IClassificationType _metadataType;
         private bool _disposed;
-
-        /// <summary>
-        /// Maximum file size (in characters) to process. Files larger than this are skipped for performance.
-        /// </summary>
-        private const int _maxFileSize = 150_000;
-
-        /// <summary>
-        /// Anchor keywords for fast pre-check before running regex.
-        /// </summary>
-        private static readonly string[] _anchorKeywords = ["TODO", "HACK", "NOTE", "BUG", "FIXME", "UNDONE", "REVIEW", "ANCHOR"];
-
-        // Regex to match comment anchors - looks for anchor keywords after comment prefixes
-        private static readonly Regex _anchorRegex = new(
-            @"(?<=//.*)(?<tag>\b(?:TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW|ANCHOR)\b:?)|" +
-            @"(?<=/\*.*)(?<tag>\b(?:TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW|ANCHOR)\b:?)|" +
-            @"(?<='.*)(?<tag>\b(?:TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW|ANCHOR)\b:?)",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-        private static readonly Regex _anchorWithMetadataRegex = new(
-            @"\b(?:TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW|ANCHOR)\b(?<metadata>\s*(?:\([^)]*\)|\[[^\]]*\]))",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         public event EventHandler<ClassificationChangedEventArgs> ClassificationChanged;
 
@@ -69,7 +48,7 @@ namespace CommentsVS.Classification
             }
 
             // Skip large files for performance
-            if (span.Snapshot.Length > _maxFileSize)
+            if (span.Snapshot.Length > Constants.MaxFileSize)
             {
                 return result;
             }
@@ -78,7 +57,7 @@ namespace CommentsVS.Classification
 
             // Fast pre-check: skip regex if no anchor keywords are present (case-insensitive)
             var hasAnyAnchor = false;
-            foreach (var keyword in _anchorKeywords)
+            foreach (var keyword in Constants.AnchorKeywords)
             {
                 if (text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
@@ -93,9 +72,9 @@ namespace CommentsVS.Classification
 
             var lineStart = span.Start.Position;
 
-            foreach (Match match in _anchorRegex.Matches(text))
+            foreach (System.Text.RegularExpressions.Match match in CommentPatterns.AnchorClassificationRegex.Matches(text))
             {
-                Group tagGroup = match.Groups["tag"];
+                System.Text.RegularExpressions.Group tagGroup = match.Groups["tag"];
                 if (!tagGroup.Success)
                 {
                     continue;
@@ -114,10 +93,10 @@ namespace CommentsVS.Classification
                 {
                     // Classify the optional metadata right after the anchor.
                     // Examples: TODO(@mads): ...  TODO[#123]: ...  ANCHOR(section-name): ...
-                    Match metaMatch = _anchorWithMetadataRegex.Match(text, tagGroup.Index);
+                    System.Text.RegularExpressions.Match metaMatch = CommentPatterns.AnchorWithMetadataRegex.Match(text, tagGroup.Index);
                     if (metaMatch.Success && metaMatch.Index == tagGroup.Index)
                     {
-                        Group metaGroup = metaMatch.Groups["metadata"];
+                        System.Text.RegularExpressions.Group metaGroup = metaMatch.Groups["metadata"];
                         if (metaGroup.Success && metaGroup.Length > 0)
                         {
                             var metaSpan = new SnapshotSpan(span.Snapshot, lineStart + metaGroup.Index, metaGroup.Length);

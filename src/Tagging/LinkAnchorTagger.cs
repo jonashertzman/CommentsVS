@@ -39,11 +39,6 @@ namespace CommentsVS.Tagging
         private readonly IClassificationType _linkClassificationType;
         private bool _disposed;
 
-        /// <summary>
-        /// Maximum file size (in characters) to process. Files larger than this are skipped for performance.
-        /// </summary>
-        private const int _maxFileSize = 150_000;
-
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
         public LinkAnchorTagger(ITextBuffer buffer, IClassificationTypeRegistryService registry)
@@ -76,7 +71,7 @@ namespace CommentsVS.Tagging
             }
 
             // Skip large files for performance
-            if (spans[0].Snapshot.Length > _maxFileSize)
+            if (spans[0].Snapshot.Length > Constants.MaxFileSize)
             {
                 yield break;
             }

@@ -79,7 +79,9 @@
     <Compile Include="QuickInfo\CompactModeQuickInfoSource.cs" />
     <Compile Include="QuickInfo\IssueReferenceQuickInfoSource.cs" />
     <Compile Include="QuickInfo\LinkAnchorQuickInfoSource.cs" />
+    <Compile Include="Services\CommentPatterns.cs" />
     <Compile Include="Services\CommentReflowEngine.cs" />
+    <Compile Include="Services\Constants.cs" />
     <Compile Include="Services\ContentTypes.cs" />
     <Compile Include="Services\FilePathResolver.cs" />
     <Compile Include="Services\GitHostingProvider.cs" />

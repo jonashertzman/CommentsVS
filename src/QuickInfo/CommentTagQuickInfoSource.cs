@@ -35,18 +35,6 @@ namespace CommentsVS.QuickInfo
     /// </summary>
     internal sealed class CommentTagQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickInfoSource
     {
-        private static readonly Regex _commentTagRegex = new(
-            @"\b(?<tag>TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW|ANCHOR|LINK)\b:?",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-        private static readonly Regex _metadataRegex = new(
-            @"(?<tag>TODO|HACK|NOTE|BUG|FIXME|UNDONE|REVIEW|ANCHOR)(?:\s*(?:\((?<metaParen>[^)]*)\)|\[(?<metaBracket>[^\]]*)\]))?\s*: ?",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-        private static readonly Regex _commentLineRegex = new(
-            @"^\s*(//|/\*|\*|')",
-            RegexOptions.Compiled);
-
         public async Task<QuickInfoItem> GetQuickInfoItemAsync(
             IAsyncQuickInfoSession session,
             CancellationToken cancellationToken)
@@ -92,7 +80,7 @@ namespace CommentsVS.QuickInfo
             }
 
             // Find comment tags in the comment portion
-            foreach (Match match in _commentTagRegex.Matches(commentText))
+            foreach (System.Text.RegularExpressions.Match match in CommentPatterns.CommentTagRegex.Matches(commentText))
             {
                 var matchStartInLine = commentStartInLine + match.Index;
                 var matchEndInLine = matchStartInLine + match.Length;
@@ -298,7 +286,7 @@ namespace CommentsVS.QuickInfo
 
             // Adjust match position to be relative to full line
             var adjustedIndex = commentStartInLine + tagMatch.Index;
-            Match match = _metadataRegex.Match(lineText, adjustedIndex);
+            System.Text.RegularExpressions.Match match = CommentPatterns.MetadataParseRegex.Match(lineText, adjustedIndex);
             if (!match.Success || match.Index != tagMatch.Index)
             {
                 return null;
@@ -364,7 +352,7 @@ namespace CommentsVS.QuickInfo
             }
 
             // Check if entire line is a comment (starts with comment prefix)
-            if (_commentLineRegex.IsMatch(text))
+            if (CommentPatterns.CommentLineRegex.IsMatch(text))
             {
                 yield return (0, text.Length);
                 yield break;

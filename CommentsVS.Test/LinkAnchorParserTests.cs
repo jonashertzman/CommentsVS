@@ -239,7 +239,7 @@ public sealed class LinkAnchorParserTests
     [TestMethod]
     public void Parse_NullString_ReturnsEmptyList()
     {
-        string text = null;
+        string? text = null;
 
         IReadOnlyList<LinkAnchorInfo> results = LinkAnchorParser.Parse(text);
 

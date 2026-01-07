@@ -20,7 +20,7 @@ namespace CommentsVS.ToolWindows
         private readonly AnchorService _anchorService;
         private readonly SolutionAnchorCache _cache;
         private CancellationTokenSource _scanCts;
-        private readonly object _scanLock = new object();
+        private readonly object _scanLock = new();
         private bool _isScanning;
 
         /// <summary>
