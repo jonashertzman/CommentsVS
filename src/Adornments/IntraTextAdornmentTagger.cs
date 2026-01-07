@@ -37,7 +37,21 @@ namespace CommentsVS.Adornments
 
         private void HandleBufferChanged(object sender, TextContentChangedEventArgs args)
         {
-            var editedSpans = args.Changes.Select(change => new SnapshotSpan(args.After, change.NewSpan)).ToList();
+            // When text changes, we need to invalidate a broader region to ensure adornments
+            // are repositioned correctly. Calculate expanded spans that include context.
+            var editedSpans = new List<SnapshotSpan>();
+
+            foreach (ITextChange change in args.Changes)
+            {
+                // Get the line containing the change
+                ITextSnapshotLine startLine = args.After.GetLineFromPosition(change.NewPosition);
+                ITextSnapshotLine endLine = args.After.GetLineFromPosition(change.NewEnd);
+
+                // Expand to include full lines to ensure adornments on affected lines are refreshed
+                var expandedSpan = new SnapshotSpan(startLine.Start, endLine.EndIncludingLineBreak);
+                editedSpans.Add(expandedSpan);
+            }
+
             InvalidateSpans(editedSpans);
         }
 
@@ -57,13 +71,27 @@ namespace CommentsVS.Adornments
 
         private void AsyncUpdate()
         {
+            // Capture old snapshot for comparison
+            ITextSnapshot oldSnapshot = snapshot;
+
             if (snapshot != view.TextBuffer.CurrentSnapshot)
             {
                 snapshot = view.TextBuffer.CurrentSnapshot;
 
+                // Translate cached adornment spans to new snapshot
+                // Use EdgeInclusive to better track position when text is inserted before/after
                 var translatedAdornmentCache = new Dictionary<SnapshotSpan, TAdornment>();
                 foreach (KeyValuePair<SnapshotSpan, TAdornment> kvp in _adornmentCache)
-                    translatedAdornmentCache[kvp.Key.TranslateTo(snapshot, SpanTrackingMode.EdgeExclusive)] = kvp.Value;
+                {
+                    SnapshotSpan translatedSpan = kvp.Key.TranslateTo(snapshot, SpanTrackingMode.EdgeInclusive);
+
+                    // Only keep the adornment if the translation was successful and the span is still valid
+                    // Discard if the span became empty or degenerate
+                    if (translatedSpan.Length > 0)
+                    {
+                        translatedAdornmentCache[translatedSpan] = kvp.Value;
+                    }
+                }
 
                 _adornmentCache = translatedAdornmentCache;
             }
@@ -134,10 +162,17 @@ namespace CommentsVS.Adornments
 
             ITextSnapshot snapshot = spans[0].Snapshot;
 
+            // Find and remove cached adornments in the affected region
+            // This is more aggressive but ensures correctness after text edits
             var toRemove = new HashSet<SnapshotSpan>();
             foreach (KeyValuePair<SnapshotSpan, TAdornment> ar in _adornmentCache)
-                if (spans.IntersectsWith(new NormalizedSnapshotSpanCollection(ar.Key)))
+            {
+                // Remove if the cached span is from an old snapshot or intersects with requested spans
+                if (ar.Key.Snapshot != snapshot || spans.IntersectsWith(new NormalizedSnapshotSpanCollection(ar.Key)))
+                {
                     toRemove.Add(ar.Key);
+                }
+            }
 
             foreach (Tuple<SnapshotSpan, PositionAffinity?, TData> spanDataPair in GetAdornmentData(spans).Distinct(new Comparer()))
             {
