@@ -40,6 +40,11 @@ namespace CommentsVS.Options
     /// </summary>
     public class General : BaseOptionModel<General>
     {
+        private HashSet<string> _cachedExtensions;
+        private string _lastExtensionsValue;
+        private HashSet<string> _cachedFolders;
+        private string _lastFoldersValue;
+
         private const string _reflowCategory = "Comment Reflow";
 
         [Category(_reflowCategory)]
@@ -139,13 +144,24 @@ namespace CommentsVS.Options
 
         /// <summary>
         /// Gets the file extensions to scan as a HashSet for fast lookup.
+        /// The result is cached and only recalculated when the setting changes.
         /// </summary>
         public HashSet<string> GetFileExtensionsSet()
         {
-            var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (!string.IsNullOrWhiteSpace(FileExtensionsToScan))
+            if (_cachedExtensions == null || _lastExtensionsValue != FileExtensionsToScan)
             {
-                foreach (var ext in FileExtensionsToScan.Split([','], StringSplitOptions.RemoveEmptyEntries))
+                _lastExtensionsValue = FileExtensionsToScan;
+                _cachedExtensions = ParseExtensions(FileExtensionsToScan);
+            }
+            return _cachedExtensions;
+        }
+
+        private static HashSet<string> ParseExtensions(string extensionsToScan)
+        {
+            var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(extensionsToScan))
+            {
+                foreach (var ext in extensionsToScan.Split([','], StringSplitOptions.RemoveEmptyEntries))
                 {
                     var trimmed = ext.Trim();
                     if (!string.IsNullOrEmpty(trimmed))
@@ -160,13 +176,24 @@ namespace CommentsVS.Options
 
         /// <summary>
         /// Gets the folders to ignore as a HashSet for fast lookup.
+        /// The result is cached and only recalculated when the setting changes.
         /// </summary>
         public HashSet<string> GetIgnoredFoldersSet()
         {
-            var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (!string.IsNullOrWhiteSpace(FoldersToIgnore))
+            if (_cachedFolders == null || _lastFoldersValue != FoldersToIgnore)
             {
-                foreach (var folder in FoldersToIgnore.Split([','], StringSplitOptions.RemoveEmptyEntries))
+                _lastFoldersValue = FoldersToIgnore;
+                _cachedFolders = ParseFolders(FoldersToIgnore);
+            }
+            return _cachedFolders;
+        }
+
+        private static HashSet<string> ParseFolders(string foldersToIgnore)
+        {
+            var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(foldersToIgnore))
+            {
+                foreach (var folder in foldersToIgnore.Split([','], StringSplitOptions.RemoveEmptyEntries))
                 {
                     var trimmed = folder.Trim();
                     if (!string.IsNullOrEmpty(trimmed))
