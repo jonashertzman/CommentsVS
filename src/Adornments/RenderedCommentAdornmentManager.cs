@@ -10,24 +10,22 @@ using Microsoft.VisualStudio.Utilities;
 
 namespace CommentsVS.Adornments
 {
-/// <summary>
-/// Provides the adornment layer for rendered comments and creates the adornment manager.
-/// </summary>
-[Export(typeof(IWpfTextViewCreationListener))]
-[ContentType(SupportedContentTypes.CSharp)]
-[ContentType(SupportedContentTypes.VisualBasic)]
-[ContentType(SupportedContentTypes.FSharp)]
-[ContentType(SupportedContentTypes.CPlusPlus)]
-[ContentType(SupportedContentTypes.TypeScript)]
-[ContentType(SupportedContentTypes.JavaScript)]
-[ContentType(SupportedContentTypes.Razor)]
-[ContentType(SupportedContentTypes.Sql)]
-[ContentType(SupportedContentTypes.PowerShell)]
-[TextViewRole(PredefinedTextViewRoles.Document)]
-
-
-internal sealed class RenderedCommentAdornmentManagerProvider : IWpfTextViewCreationListener
-{
+    /// <summary>
+    /// Provides the adornment layer for rendered comments and creates the adornment manager.
+    /// </summary>
+    [Export(typeof(IWpfTextViewCreationListener))]
+    [ContentType(SupportedContentTypes.CSharp)]
+    [ContentType(SupportedContentTypes.VisualBasic)]
+    [ContentType(SupportedContentTypes.FSharp)]
+    [ContentType(SupportedContentTypes.CPlusPlus)]
+    [ContentType(SupportedContentTypes.TypeScript)]
+    [ContentType(SupportedContentTypes.JavaScript)]
+    [ContentType(SupportedContentTypes.Razor)]
+    [ContentType(SupportedContentTypes.Sql)]
+    [ContentType(SupportedContentTypes.PowerShell)]
+    [TextViewRole(PredefinedTextViewRoles.Debuggable)]
+    internal sealed class RenderedCommentAdornmentManagerProvider : IWpfTextViewCreationListener
+    {
 
         [Export(typeof(AdornmentLayerDefinition))]
         [Name("RenderedCommentAdornment")]

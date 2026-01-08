@@ -44,9 +44,7 @@ namespace CommentsVS.Adornments
     [ContentType(SupportedContentTypes.Sql)]
     [ContentType(SupportedContentTypes.PowerShell)]
     [TagType(typeof(IntraTextAdornmentTag))]
-
-
-    [TextViewRole(PredefinedTextViewRoles.Document)]
+    [TextViewRole(PredefinedTextViewRoles.Debuggable)]
     internal sealed class RenderedCommentIntraTextTaggerProvider : IViewTaggerProvider
     {
 
