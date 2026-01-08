@@ -26,7 +26,8 @@ namespace CommentsVS.Services
         ParamRef,
         TypeParamRef,
         Heading,
-        Strikethrough
+        Strikethrough,
+        IssueReference
     }
 
     /// <summary>
@@ -134,9 +135,32 @@ namespace CommentsVS.Services
             RegexOptions.Compiled);
 
         /// <summary>
+        /// Thread-local storage for GitRepositoryInfo during rendering.
+        /// This allows ProcessMarkdownInText to access repo info without threading it through all methods.
+        /// </summary>
+        [ThreadStatic]
+        private static GitRepositoryInfo _currentRepoInfo;
+
+        /// <summary>
         /// Renders an XML documentation comment block into formatted segments.
         /// </summary>
-        public static RenderedComment Render(XmlDocCommentBlock block)
+        /// <param name="block">The XML doc comment block to render.</param>
+        /// <param name="repoInfo">Optional Git repository info for resolving issue reference URLs.</param>
+        public static RenderedComment Render(XmlDocCommentBlock block, GitRepositoryInfo repoInfo = null)
+        {
+            // Store repo info in thread-local storage for internal methods to access
+            _currentRepoInfo = repoInfo;
+            try
+            {
+                return RenderInternal(block);
+            }
+            finally
+            {
+                _currentRepoInfo = null;
+            }
+        }
+
+        private static RenderedComment RenderInternal(XmlDocCommentBlock block)
         {
             var result = new RenderedComment { Indentation = block.Indentation };
             var xmlContent = block.XmlContent;
@@ -246,8 +270,8 @@ namespace CommentsVS.Services
                         result.Sections.Insert(0, summary);
                     }
                     RenderedLine line = GetOrCreateCurrentLine(summary);
-                    // Process markdown patterns in the text
-                    List<RenderedSegment> segments = ProcessMarkdownInText(text);
+                    // Process markdown patterns in the text (with issue reference support)
+                    List<RenderedSegment> segments = ProcessMarkdownInText(text, _currentRepoInfo);
                     foreach (RenderedSegment segment in segments)
                     {
                         line.Segments.Add(segment);
@@ -380,8 +404,8 @@ namespace CommentsVS.Services
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     RenderedLine line = GetOrCreateCurrentLine(section);
-                    // Process markdown patterns in the text
-                    List<RenderedSegment> segments = ProcessMarkdownInText(text);
+                    // Process markdown patterns in the text (with issue reference support)
+                    List<RenderedSegment> segments = ProcessMarkdownInText(text, _currentRepoInfo);
                     foreach (RenderedSegment segment in segments)
                     {
                         line.Segments.Add(segment);
@@ -756,10 +780,20 @@ namespace CommentsVS.Services
             RegexOptions.Compiled);
 
         /// <summary>
-        /// Processes markdown patterns in text and returns a list of segments.
-        /// Supports **bold**, __bold__, *italic*, _italic_, `code`, ~~strikethrough~~, [text](url), and &lt;url&gt;.
+        /// Regex for issue references like #123.
+        /// Must be preceded by whitespace or start of line, followed by word boundary.
         /// </summary>
-        public static List<RenderedSegment> ProcessMarkdownInText(string text)
+        private static readonly Regex _issueReferenceRegex = new(
+            @"(?<=^|[\s\(\[\{])#(?<number>\d+)\b",
+            RegexOptions.Compiled);
+
+        /// <summary>
+        /// Processes markdown patterns in text and returns a list of segments.
+        /// Supports **bold**, __bold__, *italic*, _italic_, `code`, ~~strikethrough~~, [text](url), &lt;url&gt;, and #123 issue refs.
+        /// </summary>
+        /// <param name="text">The text to process.</param>
+        /// <param name="repoInfo">Optional Git repository info for resolving issue reference URLs.</param>
+        public static List<RenderedSegment> ProcessMarkdownInText(string text, GitRepositoryInfo repoInfo = null)
         {
             var segments = new List<RenderedSegment>();
 
@@ -775,6 +809,7 @@ namespace CommentsVS.Services
             MatchCollection boldMatches = _markdownBoldRegex.Matches(text);
             MatchCollection italicMatches = _markdownItalicRegex.Matches(text);
             MatchCollection strikethroughMatches = _markdownStrikethroughRegex.Matches(text);
+            MatchCollection issueReferenceMatches = _issueReferenceRegex.Matches(text);
 
             // Combine all matches and sort by position
             // Tuple: (Start, Length, Content, Type, LinkTarget)
@@ -831,6 +866,25 @@ namespace CommentsVS.Services
                 if (!OverlapsWithExisting(allMatches, match.Index, match.Length))
                 {
                     allMatches.Add((match.Index, match.Length, match.Groups[1].Value, RenderedSegmentType.Strikethrough, null));
+                }
+            }
+
+            // Issue references: #123 (only if we have repo info to resolve the URL)
+            if (repoInfo != null)
+            {
+                foreach (Match match in issueReferenceMatches)
+                {
+                    if (!OverlapsWithExisting(allMatches, match.Index, match.Length))
+                    {
+                        if (int.TryParse(match.Groups["number"].Value, out var issueNumber))
+                        {
+                            var url = repoInfo.GetIssueUrl(issueNumber);
+                            if (!string.IsNullOrEmpty(url))
+                            {
+                                allMatches.Add((match.Index, match.Length, match.Value, RenderedSegmentType.IssueReference, url));
+                            }
+                        }
+                    }
                 }
             }
 

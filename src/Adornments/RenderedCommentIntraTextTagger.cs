@@ -69,9 +69,20 @@ namespace CommentsVS.Adornments
         private readonly HashSet<int> _temporarilyHiddenComments = [];
         private readonly HashSet<int> _recentlyEditedLines = [];
         private int? _lastCaretLine;
+        private GitRepositoryInfo _repoInfo;
+        private bool _repoInfoInitialized;
+        private readonly string _filePath;
 
         public RenderedCommentIntraTextTagger(IWpfTextView view) : base(view)
         {
+            // Get file path for issue reference resolution
+            if (view.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+            {
+                _filePath = document.FilePath;
+                // Fire and forget - triggers async fetch, results will be available on subsequent renders
+                InitializeRepoInfoAsync().FireAndForget();
+            }
+
             SetRenderingModeHelper.RenderedCommentsStateChanged += OnRenderedStateChanged;
             view.Caret.PositionChanged += OnCaretPositionChanged;
             view.TextBuffer.Changed += OnBufferChanged;
@@ -108,6 +119,41 @@ namespace CommentsVS.Adornments
             }
 
             base.Dispose(disposing);
+        }
+
+        private async System.Threading.Tasks.Task InitializeRepoInfoAsync()
+        {
+            if (string.IsNullOrEmpty(_filePath))
+            {
+                return;
+            }
+
+            _repoInfo = await GitRepositoryService.GetRepositoryInfoAsync(_filePath).ConfigureAwait(false);
+            _repoInfoInitialized = true;
+
+            // Trigger a refresh to update any already-rendered comments with issue links
+            if (_repoInfo != null)
+            {
+                DeferredRefreshTags();
+            }
+        }
+
+        /// <summary>
+        /// Gets the current GitRepositoryInfo for resolving issue references.
+        /// </summary>
+        private GitRepositoryInfo GetRepoInfo()
+        {
+            // Try to get cached repo info (non-blocking)
+            if (!_repoInfoInitialized && !string.IsNullOrEmpty(_filePath))
+            {
+                _repoInfo = GitRepositoryService.TryGetCachedRepositoryInfo(_filePath);
+                if (_repoInfo != null)
+                {
+                    _repoInfoInitialized = true;
+                }
+            }
+
+            return _repoInfo;
         }
 
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
@@ -443,8 +489,8 @@ namespace CommentsVS.Adornments
                 textBlock.MaxWidth = Math.Max(viewportWidth - indentWidth - 50, 200);
             }
 
-            // Process markdown in the summary text and create formatted inlines
-            List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText(strippedSummary);
+            // Process markdown in the summary text and create formatted inlines (with issue reference support)
+            List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText(strippedSummary, GetRepoInfo());
             var headingBrush = new SolidColorBrush(Color.FromRgb(100, 100, 100));
 
             foreach (RenderedSegment segment in segments)
@@ -465,7 +511,7 @@ namespace CommentsVS.Adornments
         private FrameworkElement CreateFullModeAdornment(XmlDocCommentBlock block, double fontSize,
             FontFamily fontFamily, Brush textBrush, Brush headingBrush)
         {
-            RenderedComment rendered = XmlDocCommentRenderer.Render(block);
+            RenderedComment rendered = XmlDocCommentRenderer.Render(block, GetRepoInfo());
 
             // If only summary with no list content, use compact display
             RenderedCommentSection summarySection = rendered.Summary;
@@ -714,13 +760,14 @@ namespace CommentsVS.Adornments
 
         /// <summary>
         /// Creates an Inline element for a rendered segment with appropriate formatting.
-        /// Returns a Hyperlink for links, Run for other types.
+        /// Returns a Hyperlink for links and issue references, Run for other types.
         /// </summary>
         private static Inline CreateInlineForSegment(RenderedSegment segment, Brush textBrush, Brush headingBrush)
         {
             switch (segment.Type)
             {
                 case RenderedSegmentType.Link:
+                case RenderedSegmentType.IssueReference:
                     var hyperlink = new Hyperlink(new Run(segment.Text))
                     {
                         Foreground = new SolidColorBrush(Color.FromRgb(86, 156, 214)), // Blue link color

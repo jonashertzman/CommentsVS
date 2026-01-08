@@ -41,8 +41,20 @@ namespace CommentsVS.QuickInfo
     /// Provides hover tooltips for collapsed XML doc comments in Compact mode,
     /// showing the full rendered view.
     /// </summary>
-    internal sealed class CompactModeQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickInfoSource
+    internal sealed class CompactModeQuickInfoSource : IAsyncQuickInfoSource
     {
+        private readonly ITextBuffer _textBuffer;
+        private readonly string _filePath;
+
+        public CompactModeQuickInfoSource(ITextBuffer textBuffer)
+        {
+            _textBuffer = textBuffer;
+            if (textBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+            {
+                _filePath = document.FilePath;
+            }
+        }
+
         public async Task<QuickInfoItem> GetQuickInfoItemAsync(
             IAsyncQuickInfoSession session,
             CancellationToken cancellationToken)
@@ -54,7 +66,7 @@ namespace CommentsVS.QuickInfo
                 return null;
             }
 
-            SnapshotPoint? triggerPoint = session.GetTriggerPoint(textBuffer.CurrentSnapshot);
+            SnapshotPoint? triggerPoint = session.GetTriggerPoint(_textBuffer.CurrentSnapshot);
             if (!triggerPoint.HasValue)
             {
                 return null;
@@ -75,8 +87,16 @@ namespace CommentsVS.QuickInfo
                 return null;
             }
 
+            // Get repo info for issue reference resolution (async is fine here since we're in an async method)
+            GitRepositoryInfo repoInfo = null;
+            if (!string.IsNullOrEmpty(_filePath))
+            {
+                repoInfo = GitRepositoryService.TryGetCachedRepositoryInfo(_filePath)
+                    ?? await GitRepositoryService.GetRepositoryInfoAsync(_filePath).ConfigureAwait(false);
+            }
+
             // Render the comment in full format
-            RenderedComment renderedComment = XmlDocCommentRenderer.Render(block);
+            RenderedComment renderedComment = XmlDocCommentRenderer.Render(block, repoInfo);
 
             // Only show tooltip if there's content not visible in compact inline view:
             // 1. Additional sections beyond summary (params, returns, remarks, etc.)

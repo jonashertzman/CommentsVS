@@ -287,4 +287,95 @@ public sealed class XmlDocCommentRendererTests
     }
 
     #endregion
+
+    #region Issue Reference Tests
+
+    [TestMethod]
+    public void ProcessMarkdownInText_WithIssueReference_WithoutRepoInfo_TreatsAsPlainText()
+    {
+        // Without repo info, issue references should be treated as plain text
+        List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText("See issue #123 for details");
+
+        // All should be plain text since no repo info provided
+        Assert.IsTrue(segments.All(s => s.Type == RenderedSegmentType.Text), "Without repo info, issue refs should be plain text");
+        var joined = string.Join("", segments.Select(s => s.Text));
+        Assert.Contains("#123", joined, "Original text should be preserved");
+    }
+
+    [TestMethod]
+    public void ProcessMarkdownInText_WithIssueReference_WithRepoInfo_CreatesIssueReferenceSegment()
+    {
+        // Create a mock repo info for GitHub
+        var repoInfo = new GitRepositoryInfo(GitHostingProvider.GitHub, "testowner", "testrepo", "https://github.com");
+
+        List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText("See issue #123 for details", repoInfo);
+
+        RenderedSegment issueSegment = segments.FirstOrDefault(s => s.Type == RenderedSegmentType.IssueReference);
+        Assert.IsNotNull(issueSegment, "Should have an IssueReference segment");
+        Assert.AreEqual("#123", issueSegment.Text, "Issue reference text should be preserved");
+        Assert.AreEqual("https://github.com/testowner/testrepo/issues/123", issueSegment.LinkTarget, "Should have correct issue URL");
+    }
+
+    [TestMethod]
+    public void ProcessMarkdownInText_WithIssueReference_AtStartOfText_CreatesIssueReferenceSegment()
+    {
+        var repoInfo = new GitRepositoryInfo(GitHostingProvider.GitHub, "owner", "repo", "https://github.com");
+
+        List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText("#42 is the issue", repoInfo);
+
+        RenderedSegment issueSegment = segments.FirstOrDefault(s => s.Type == RenderedSegmentType.IssueReference);
+        Assert.IsNotNull(issueSegment, "Should have an IssueReference segment");
+        Assert.AreEqual("#42", issueSegment.Text);
+    }
+
+    [TestMethod]
+    public void ProcessMarkdownInText_WithIssueReference_AfterParenthesis_CreatesIssueReferenceSegment()
+    {
+        var repoInfo = new GitRepositoryInfo(GitHostingProvider.GitHub, "owner", "repo", "https://github.com");
+
+        List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText("Fixed bug (#99)", repoInfo);
+
+        RenderedSegment issueSegment = segments.FirstOrDefault(s => s.Type == RenderedSegmentType.IssueReference);
+        Assert.IsNotNull(issueSegment, "Should have an IssueReference segment");
+        Assert.AreEqual("#99", issueSegment.Text);
+    }
+
+    [TestMethod]
+    public void ProcessMarkdownInText_WithMultipleIssueReferences_CreatesMultipleSegments()
+    {
+        var repoInfo = new GitRepositoryInfo(GitHostingProvider.GitHub, "owner", "repo", "https://github.com");
+
+        List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText("See #10 and #20", repoInfo);
+
+        List<RenderedSegment> issueSegments = segments.Where(s => s.Type == RenderedSegmentType.IssueReference).ToList();
+        Assert.HasCount(2, issueSegments, "Should have two IssueReference segments");
+        Assert.AreEqual("#10", issueSegments[0].Text);
+        Assert.AreEqual("#20", issueSegments[1].Text);
+    }
+
+    [TestMethod]
+    public void ProcessMarkdownInText_WithIssueReferenceAndMarkdown_HandlesBoth()
+    {
+        var repoInfo = new GitRepositoryInfo(GitHostingProvider.GitHub, "owner", "repo", "https://github.com");
+
+        List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText("Fix for **bug** #123", repoInfo);
+
+        Assert.IsTrue(segments.Any(s => s.Type == RenderedSegmentType.Bold), "Should have bold segment");
+        Assert.IsTrue(segments.Any(s => s.Type == RenderedSegmentType.IssueReference), "Should have issue reference segment");
+    }
+
+    [TestMethod]
+    public void ProcessMarkdownInText_WithHashtagInCode_NotTreatedAsIssueReference()
+    {
+        var repoInfo = new GitRepositoryInfo(GitHostingProvider.GitHub, "owner", "repo", "https://github.com");
+
+        // Code blocks have higher priority than issue references
+        List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText("Use `#123` in code", repoInfo);
+
+        // The #123 inside code should not be an issue reference
+        Assert.IsFalse(segments.Any(s => s.Type == RenderedSegmentType.IssueReference && s.Text == "#123"),
+            "Issue refs inside code blocks should not be converted");
+    }
+
+    #endregion
 }
