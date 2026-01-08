@@ -76,11 +76,13 @@ namespace CommentsVS.QuickInfo
         private string BuildTooltip(LinkAnchorInfo link)
         {
             var sb = new System.Text.StringBuilder();
+            var canNavigate = false;
 
             if (link.IsLocalAnchor)
             {
                 sb.AppendLine($"🔗 Local Anchor: #{link.AnchorName}");
                 sb.AppendLine("Jump to anchor in current file");
+                canNavigate = true;
             }
             else
             {
@@ -97,13 +99,18 @@ namespace CommentsVS.QuickInfo
                 if (fileExists)
                 {
                     sb.AppendLine($"📁 {resolvedPath}");
+                    canNavigate = true;
                 }
                 else
                 {
-                    sb.AppendLine($"⚠️ File not found: {link.FilePath}");
+                    // Only show resolved path info - the error squiggle already indicates file not found
                     if (!string.IsNullOrEmpty(resolvedPath))
                     {
-                        sb.AppendLine($"Resolved path: {resolvedPath}");
+                        sb.AppendLine($"⚠️ Resolved path: {resolvedPath}");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"⚠️ Cannot resolve: {link.FilePath}");
                     }
                 }
 
@@ -122,8 +129,11 @@ namespace CommentsVS.QuickInfo
                 }
             }
 
-            sb.AppendLine();
-            sb.Append("Ctrl+Click to navigate");
+            if (canNavigate)
+            {
+                sb.AppendLine();
+                sb.Append("Ctrl+Click to navigate");
+            }
 
             return sb.ToString();
         }

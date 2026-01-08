@@ -30,11 +30,12 @@ namespace CommentsVS.Tagging
     /// <summary>
     /// Creates error tags (squiggles) for invalid LINK anchors (missing files or anchors).
     /// </summary>
-    internal sealed class LinkAnchorValidationTagger : ITagger<IErrorTag>
+    internal sealed class LinkAnchorValidationTagger : ITagger<IErrorTag>, IDisposable
     {
         private readonly ITextBuffer _buffer;
         private string _currentFilePath;
-        private bool _filePathInitialized;
+        private ITextDocument _document;
+        private bool _disposed;
 
         /// <summary>
         /// Maximum file size (in characters) to process. Files larger than this are skipped for performance.
@@ -47,6 +48,55 @@ namespace CommentsVS.Tagging
         {
             _buffer = buffer;
             _buffer.Changed += OnBufferChanged;
+            TryInitializeDocument();
+        }
+
+        private void TryInitializeDocument()
+        {
+            if (_document != null)
+            {
+                return;
+            }
+
+            if (_buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+            {
+                _document = document;
+                _currentFilePath = document.FilePath;
+                _document.FileActionOccurred += OnFileActionOccurred;
+            }
+        }
+
+        private void OnFileActionOccurred(object sender, TextDocumentFileActionEventArgs e)
+        {
+            // Update file path if document was renamed or saved to a new location
+            if (e.FileActionType == FileActionTypes.DocumentRenamed)
+            {
+                _currentFilePath = e.FilePath;
+                RaiseTagsChangedForEntireBuffer();
+            }
+        }
+
+        private void RaiseTagsChangedForEntireBuffer()
+        {
+            ITextSnapshot snapshot = _buffer.CurrentSnapshot;
+            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
+                new SnapshotSpan(snapshot, 0, snapshot.Length)));
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _buffer.Changed -= OnBufferChanged;
+
+            if (_document != null)
+            {
+                _document.FileActionOccurred -= OnFileActionOccurred;
+            }
         }
 
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
@@ -66,17 +116,16 @@ namespace CommentsVS.Tagging
                 yield break;
             }
 
+            ITextSnapshot snapshot = spans[0].Snapshot;
+
             // Skip large files for performance
-            if (spans[0].Snapshot.Length > _maxFileSize)
+            if (snapshot.Length > _maxFileSize)
             {
                 yield break;
             }
 
-            // Initialize file path lazily
-            if (!_filePathInitialized)
-            {
-                InitializeFilePath();
-            }
+            // Try to initialize document if not yet available
+            TryInitializeDocument();
 
             // Can't validate without knowing the current file
             if (string.IsNullOrEmpty(_currentFilePath))
@@ -86,50 +135,49 @@ namespace CommentsVS.Tagging
 
             var resolver = new FilePathResolver(_currentFilePath);
 
+            // Process each line that intersects with the requested spans
             foreach (SnapshotSpan span in spans)
             {
-                var text = span.GetText();
+                // Get the full line(s) that this span intersects
+                int startLineNumber = span.Start.GetContainingLine().LineNumber;
+                int endLineNumber = span.End.GetContainingLine().LineNumber;
 
-                // Fast pre-check: skip if no LINK keyword
-                if (text.IndexOf("LINK", StringComparison.OrdinalIgnoreCase) < 0)
+                for (int lineNumber = startLineNumber; lineNumber <= endLineNumber; lineNumber++)
                 {
-                    continue;
-                }
+                    ITextSnapshotLine line = snapshot.GetLineFromLineNumber(lineNumber);
+                    string text = line.GetText();
 
-                // Check if this line is a comment
-                if (!LanguageCommentStyle.IsCommentLine(text))
-                {
-                    continue;
-                }
-
-                IReadOnlyList<LinkAnchorInfo> links = LinkAnchorParser.Parse(text);
-                foreach (LinkAnchorInfo link in links)
-                {
-                    // Skip local anchors for now (would need to scan current file)
-                    if (link.IsLocalAnchor)
+                    // Fast pre-check: skip if no LINK keyword
+                    if (text.IndexOf("LINK", StringComparison.OrdinalIgnoreCase) < 0)
                     {
                         continue;
                     }
 
-                    // Try to resolve the file path
-                    if (!resolver.TryResolve(link.FilePath, out _))
+                    // Check if this line is a comment
+                    if (!LanguageCommentStyle.IsCommentLine(text))
                     {
-                        // File not found - create a warning squiggle on the target portion only
-                        var tagSpan = new SnapshotSpan(span.Snapshot, span.Start + link.TargetStartIndex, link.TargetLength);
-                        var errorTag = new ErrorTag(PredefinedErrorTypeNames.Warning, $"File not found: {link.FilePath}");
-                        yield return new TagSpan<IErrorTag>(tagSpan, errorTag);
+                        continue;
+                    }
+
+                    IReadOnlyList<LinkAnchorInfo> links = LinkAnchorParser.Parse(text);
+                    foreach (LinkAnchorInfo link in links)
+                    {
+                        // Skip local anchors for now (would need to scan current file)
+                        if (link.IsLocalAnchor)
+                        {
+                            continue;
+                        }
+
+                        // Try to resolve the file path
+                        if (!resolver.TryResolve(link.FilePath, out _))
+                        {
+                            // File not found - create a warning squiggle on the target portion only
+                            var tagSpan = new SnapshotSpan(snapshot, line.Start + link.TargetStartIndex, link.TargetLength);
+                            var errorTag = new ErrorTag(PredefinedErrorTypeNames.Warning, $"File not found: {link.FilePath}");
+                            yield return new TagSpan<IErrorTag>(tagSpan, errorTag);
+                        }
                     }
                 }
-            }
-        }
-
-        private void InitializeFilePath()
-        {
-            _filePathInitialized = true;
-
-            if (_buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
-            {
-                _currentFilePath = document.FilePath;
             }
         }
     }
