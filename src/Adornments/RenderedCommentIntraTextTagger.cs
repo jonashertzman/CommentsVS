@@ -439,7 +439,8 @@ namespace CommentsVS.Adornments
 
             // Gray color for subtle appearance
             var textBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128));
-            var headingBrush = new SolidColorBrush(Color.FromRgb(100, 100, 100));
+            // Green color for section headings (Returns, Remarks, params, etc.) - matches comment color association
+            var headingBrush = new SolidColorBrush(Color.FromRgb(87, 166, 74)); // VS comment green
 
             if (renderingMode == RenderingMode.Full)
             {
@@ -891,12 +892,11 @@ namespace CommentsVS.Adornments
 
                 if (i == 0)
                 {
-                    // First line has bullet, name (bold), and start of content
+                    // First line has bullet, name (styled), and start of content
                     textBlock.Inlines.Add(new Run("• ") { Foreground = textBrush });
                     textBlock.Inlines.Add(new Run(name)
                     {
-                        Foreground = headingBrush,
-                        FontWeight = FontWeights.SemiBold
+                        Foreground = headingBrush
                     });
                     // Get the content part after the prefix
                     var contentStart = prefix.Length;
@@ -938,7 +938,6 @@ namespace CommentsVS.Adornments
                         FontFamily = fontFamily,
                         FontSize = fontSize,
                         Foreground = headingBrush,
-                        FontWeight = FontWeights.SemiBold,
                         TextWrapping = TextWrapping.NoWrap,
                         Margin = new Thickness(0, 0, 0, itemSpacing),
                         Text = heading
@@ -1010,11 +1009,10 @@ namespace CommentsVS.Adornments
 
                     if (i == 0 && !string.IsNullOrEmpty(heading))
                     {
-                        // First line has heading (bold) and start of content
+                        // First line has heading (styled) and start of content
                         textBlock.Inlines.Add(new Run(heading)
                         {
-                            Foreground = headingBrush,
-                            FontWeight = FontWeights.SemiBold
+                            Foreground = headingBrush
                         });
                         var contentStart = heading.Length + 1; // +1 for space
                         if (lineText.Length > contentStart)
