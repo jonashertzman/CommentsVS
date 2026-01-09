@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml;
+using System.Xml.Linq;
 
 namespace CommentsVS.Services
 {
@@ -135,6 +135,16 @@ namespace CommentsVS.Services
             RegexOptions.Compiled);
 
         /// <summary>
+        /// Pre-compiled regex for whitespace normalization (collapses multiple whitespace to single space).
+        /// </summary>
+        private static readonly Regex _whitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Pre-compiled regex for stripping XML tags (fallback when parsing fails).
+        /// </summary>
+        private static readonly Regex _stripXmlTagsRegex = new(@"<[^>]+>", RegexOptions.Compiled);
+
+        /// <summary>
         /// Thread-local storage for GitRepositoryInfo during rendering.
         /// This allows ProcessMarkdownInText to access repo info without threading it through all methods.
         /// </summary>
@@ -175,10 +185,9 @@ namespace CommentsVS.Services
 
             try
             {
-                var doc = new System.Xml.XmlDocument();
-                doc.LoadXml(wrappedXml);
+                var doc = XDocument.Parse(wrappedXml);
 
-                foreach (System.Xml.XmlNode child in doc.DocumentElement.ChildNodes)
+                foreach (XNode child in doc.Root.Nodes())
                 {
                     RenderTopLevelNode(child, result);
                 }
@@ -255,9 +264,9 @@ namespace CommentsVS.Services
             }
         }
 
-        private static void RenderTopLevelNode(System.Xml.XmlNode node, RenderedComment result)
+        private static void RenderTopLevelNode(XNode node, RenderedComment result)
         {
-            if (node is System.Xml.XmlText textNode)
+            if (node is XText textNode)
             {
                 var text = CleanText(textNode.Value);
                 if (!string.IsNullOrWhiteSpace(text))
@@ -280,17 +289,12 @@ namespace CommentsVS.Services
                 return;
             }
 
-            if (node is System.Xml.XmlWhitespace)
+            if (node is not XElement element)
             {
                 return;
             }
 
-            if (node is not System.Xml.XmlElement element)
-            {
-                return;
-            }
-
-            var tagName = element.Name.ToLowerInvariant();
+            var tagName = element.Name.LocalName.ToLowerInvariant();
 
             switch (tagName)
             {
@@ -315,17 +319,17 @@ namespace CommentsVS.Services
                     break;
 
                 case "param":
-                    var paramName = element.GetAttribute("name");
+                    var paramName = (string)element.Attribute("name") ?? "";
                     RenderSectionElement(element, result, CommentSectionType.Param, $"Parameter '{paramName}':", paramName);
                     break;
 
                 case "typeparam":
-                    var typeParamName = element.GetAttribute("name");
+                    var typeParamName = (string)element.Attribute("name") ?? "";
                     RenderSectionElement(element, result, CommentSectionType.TypeParam, $"Type parameter '{typeParamName}':", typeParamName);
                     break;
 
                 case "exception":
-                    var exceptionType = GetTypeNameFromCref(element.GetAttribute("cref"));
+                    var exceptionType = GetTypeNameFromCref((string)element.Attribute("cref") ?? "");
                     RenderSectionElement(element, result, CommentSectionType.Exception, $"Throws {exceptionType}:", exceptionType);
                     break;
 
@@ -346,7 +350,7 @@ namespace CommentsVS.Services
             }
         }
 
-        private static void RenderSectionElement(System.Xml.XmlElement element, RenderedComment result,
+        private static void RenderSectionElement(XElement element, RenderedComment result,
             CommentSectionType sectionType, string heading, string name)
         {
             var section = new RenderedCommentSection(sectionType, heading, name);
@@ -354,7 +358,7 @@ namespace CommentsVS.Services
             result.Sections.Add(section);
         }
 
-        private static void RenderSeeAlsoSection(System.Xml.XmlElement element, RenderedComment result)
+        private static void RenderSeeAlsoSection(XElement element, RenderedComment result)
         {
             // Find or create the seealso section
             RenderedCommentSection seeAlsoSection = result.Sections.FirstOrDefault(s => s.Type == CommentSectionType.SeeAlso);
@@ -365,9 +369,9 @@ namespace CommentsVS.Services
             }
 
             // Add the reference
-            var cref = element.GetAttribute("cref");
-            var href = element.GetAttribute("href");
-            var displayText = element.InnerText;
+            var cref = (string)element.Attribute("cref") ?? "";
+            var href = (string)element.Attribute("href") ?? "";
+            var displayText = element.Value;
             string linkTarget = null;
 
             if (!string.IsNullOrEmpty(cref))
@@ -396,9 +400,9 @@ namespace CommentsVS.Services
             }
         }
 
-        private static void RenderNode(System.Xml.XmlNode node, RenderedCommentSection section)
+        private static void RenderNode(XNode node, RenderedCommentSection section)
         {
-            if (node is System.Xml.XmlText textNode)
+            if (node is XText textNode)
             {
                 var text = CleanText(textNode.Value);
                 if (!string.IsNullOrWhiteSpace(text))
@@ -414,33 +418,12 @@ namespace CommentsVS.Services
                 return;
             }
 
-            // Handle significant whitespace (whitespace in mixed content) - add single space
-            if (node is System.Xml.XmlSignificantWhitespace)
-            {
-                RenderedLine line = GetOrCreateCurrentLine(section);
-                // Only add space if the last segment doesn't already end with space
-                if (line.Segments.Count > 0)
-                {
-                    RenderedSegment lastSegment = line.Segments[line.Segments.Count - 1];
-                    if (!lastSegment.Text.EndsWith(" ", StringComparison.Ordinal))
-                    {
-                        line.Segments.Add(new RenderedSegment(""));
-                    }
-                }
-                return;
-            }
-
-            if (node is System.Xml.XmlWhitespace)
+            if (node is not XElement element)
             {
                 return;
             }
 
-            if (node is not System.Xml.XmlElement element)
-            {
-                return;
-            }
-
-            var tagName = element.Name.ToLowerInvariant();
+            var tagName = element.Name.LocalName.ToLowerInvariant();
 
             switch (tagName)
             {
@@ -491,21 +474,21 @@ namespace CommentsVS.Services
             }
         }
 
-        private static void RenderChildNodes(System.Xml.XmlNode parent, RenderedCommentSection section)
+        private static void RenderChildNodes(XElement parent, RenderedCommentSection section)
         {
-            foreach (System.Xml.XmlNode child in parent.ChildNodes)
+            foreach (XNode child in parent.Nodes())
             {
                 RenderNode(child, section);
             }
         }
 
-        private static void RenderSeeTag(System.Xml.XmlElement element, RenderedCommentSection section)
+        private static void RenderSeeTag(XElement element, RenderedCommentSection section)
         {
-            var cref = element.GetAttribute("cref");
-            var href = element.GetAttribute("href");
-            var langword = element.GetAttribute("langword");
+            var cref = (string)element.Attribute("cref") ?? "";
+            var href = (string)element.Attribute("href") ?? "";
+            var langword = (string)element.Attribute("langword") ?? "";
 
-            var displayText = element.InnerText?.Trim();
+            var displayText = element.Value?.Trim() ?? "";
             string linkTarget = null;
 
             if (!string.IsNullOrEmpty(cref))
@@ -541,9 +524,9 @@ namespace CommentsVS.Services
             }
         }
 
-        private static void RenderParamRef(System.Xml.XmlElement element, RenderedCommentSection section)
+        private static void RenderParamRef(XElement element, RenderedCommentSection section)
         {
-            var name = element.GetAttribute("name");
+            var name = (string)element.Attribute("name") ?? "";
             if (!string.IsNullOrEmpty(name))
             {
                 RenderedLine line = GetOrCreateCurrentLine(section);
@@ -551,9 +534,9 @@ namespace CommentsVS.Services
             }
         }
 
-        private static void RenderTypeParamRef(System.Xml.XmlElement element, RenderedCommentSection section)
+        private static void RenderTypeParamRef(XElement element, RenderedCommentSection section)
         {
-            var name = element.GetAttribute("name");
+            var name = (string)element.Attribute("name") ?? "";
             if (!string.IsNullOrEmpty(name))
             {
                 RenderedLine line = GetOrCreateCurrentLine(section);
@@ -561,9 +544,9 @@ namespace CommentsVS.Services
             }
         }
 
-        private static void RenderInlineCode(System.Xml.XmlElement element, RenderedCommentSection section)
+        private static void RenderInlineCode(XElement element, RenderedCommentSection section)
         {
-            var code = element.InnerText;
+            var code = element.Value;
             if (!string.IsNullOrEmpty(code))
             {
                 RenderedLine line = GetOrCreateCurrentLine(section);
@@ -571,12 +554,12 @@ namespace CommentsVS.Services
             }
         }
 
-        private static void RenderCodeBlock(System.Xml.XmlElement element, RenderedCommentSection section)
+        private static void RenderCodeBlock(XElement element, RenderedCommentSection section)
         {
             section.Lines.Add(new RenderedLine()); // Blank line before
 
             // Preserve the original formatting of code blocks
-            var codeContent = element.InnerText;
+            var codeContent = element.Value;
 
             // Split by newlines while preserving empty lines
             var codeLines = codeContent.Split(["\r\n", "\n"], StringSplitOptions.None);
@@ -616,7 +599,7 @@ namespace CommentsVS.Services
             section.Lines.Add(new RenderedLine()); // Blank line after
         }
 
-        private static void RenderList(System.Xml.XmlElement element, RenderedCommentSection section)
+        private static void RenderList(XElement element, RenderedCommentSection section)
         {
             // Mark where list content starts (for collapsed view to exclude it)
             if (section.ListContentStartIndex < 0)
@@ -631,33 +614,33 @@ namespace CommentsVS.Services
                 section.Lines.Add(new RenderedLine());
             }
 
-            var listType = element.GetAttribute("type");
+            var listType = (string)element.Attribute("type") ?? "";
             var itemNumber = 1;
 
-            foreach (System.Xml.XmlNode child in element.ChildNodes)
+            foreach (XNode child in element.Nodes())
             {
-                if (child is System.Xml.XmlElement itemElement && itemElement.Name.ToLowerInvariant() == "item")
+                if (child is XElement itemElement && itemElement.Name.LocalName.ToLowerInvariant() == "item")
                 {
                     var line = new RenderedLine();
                     var bullet = listType == "number" ? $"{itemNumber++}. " : "  • ";
                     line.Segments.Add(new RenderedSegment(bullet));
 
                     // Get term and description if present
-                    XmlNode term = itemElement.SelectSingleNode("term");
-                    XmlNode description = itemElement.SelectSingleNode("description");
+                    XElement term = itemElement.Element("term");
+                    XElement description = itemElement.Element("description");
 
                     if (term != null)
                     {
-                        line.Segments.Add(new RenderedSegment(term.InnerText.Trim(), RenderedSegmentType.Bold));
+                        line.Segments.Add(new RenderedSegment(term.Value.Trim(), RenderedSegmentType.Bold));
                         if (description != null)
                         {
                             line.Segments.Add(new RenderedSegment(" – "));
-                            line.Segments.Add(new RenderedSegment(description.InnerText.Trim()));
+                            line.Segments.Add(new RenderedSegment(description.Value.Trim()));
                         }
                     }
                     else
                     {
-                        line.Segments.Add(new RenderedSegment(itemElement.InnerText.Trim()));
+                        line.Segments.Add(new RenderedSegment(itemElement.Value.Trim()));
                     }
 
                     section.Lines.Add(line);
@@ -667,16 +650,16 @@ namespace CommentsVS.Services
             // Note: No trailing blank line - section spacing is handled by the tagger
         }
 
-        private static void RenderBold(System.Xml.XmlElement element, RenderedCommentSection section)
+        private static void RenderBold(XElement element, RenderedCommentSection section)
         {
             RenderedLine line = GetOrCreateCurrentLine(section);
-            line.Segments.Add(new RenderedSegment(element.InnerText, RenderedSegmentType.Bold));
+            line.Segments.Add(new RenderedSegment(element.Value, RenderedSegmentType.Bold));
         }
 
-        private static void RenderItalic(System.Xml.XmlElement element, RenderedCommentSection section)
+        private static void RenderItalic(XElement element, RenderedCommentSection section)
         {
             RenderedLine line = GetOrCreateCurrentLine(section);
-            line.Segments.Add(new RenderedSegment(element.InnerText, RenderedSegmentType.Italic));
+            line.Segments.Add(new RenderedSegment(element.Value, RenderedSegmentType.Italic));
         }
 
         private static RenderedLine GetOrCreateCurrentLine(RenderedCommentSection section)
@@ -959,7 +942,7 @@ namespace CommentsVS.Services
             var hadTrailingSpace = char.IsWhiteSpace(text[text.Length - 1]);
 
             // Normalize whitespace (collapses multiple spaces/newlines to single space)
-            text = Regex.Replace(text, @"\s+", " ");
+            text = _whitespaceRegex.Replace(text, " ");
 
             // Only trim if we're going to re-add the spaces we need
             var trimmed = text.Trim();
@@ -1000,15 +983,14 @@ namespace CommentsVS.Services
 
             try
             {
-                var doc = new System.Xml.XmlDocument();
-                doc.LoadXml(wrappedXml);
+                var doc = XDocument.Parse(wrappedXml);
 
                 // Find the summary element
-                XmlNode summaryNode = doc.DocumentElement.SelectSingleNode("summary");
+                XElement summaryNode = doc.Root.Element("summary");
                 if (summaryNode == null)
                 {
                     // No summary - try to extract any text content
-                    return CleanText(doc.DocumentElement.InnerText);
+                    return CleanText(doc.Root.Value);
                 }
 
                 // Extract text from summary, preserving inline elements but removing tags
@@ -1025,29 +1007,29 @@ namespace CommentsVS.Services
         /// <summary>
         /// Recursively extracts plain text from an XML node, preserving text content but removing tags.
         /// </summary>
-        private static string ExtractPlainText(System.Xml.XmlNode node)
+        private static string ExtractPlainText(XElement node)
         {
             var sb = new StringBuilder();
 
-            foreach (System.Xml.XmlNode child in node.ChildNodes)
+            foreach (XNode child in node.Nodes())
             {
-                if (child is System.Xml.XmlText textNode)
+                if (child is XText textNode)
                 {
                     sb.Append(textNode.Value);
                 }
-                else if (child is System.Xml.XmlElement element)
+                else if (child is XElement element)
                 {
                     // For certain elements, add text representation
-                    var tagName = element.Name.ToLowerInvariant();
+                    var tagName = element.Name.LocalName.ToLowerInvariant();
                     switch (tagName)
                     {
                         case "paramref":
                         case "typeparamref":
-                            sb.Append(element.GetAttribute("name"));
+                            sb.Append((string)element.Attribute("name") ?? "");
                             break;
                         case "see":
                         case "seealso":
-                            var cref = element.GetAttribute("cref");
+                            var cref = (string)element.Attribute("cref") ?? "";
                             sb.Append(GetTypeNameFromCref(cref));
                             break;
                         default:
@@ -1072,9 +1054,9 @@ namespace CommentsVS.Services
             }
 
             // Remove XML tags
-            var text = Regex.Replace(xml, @"<[^>]+>", " ");
+            var text = _stripXmlTagsRegex.Replace(xml, " ");
             // Clean up whitespace
-            text = Regex.Replace(text, @"\s+", " ");
+            text = _whitespaceRegex.Replace(text, " ");
             return text.Trim();
         }
     }
