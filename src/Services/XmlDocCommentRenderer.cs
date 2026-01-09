@@ -489,11 +489,13 @@ namespace CommentsVS.Services
             var langword = (string)element.Attribute("langword") ?? "";
 
             var displayText = element.Value?.Trim() ?? "";
+            RenderedSegmentType segmentType;
             string linkTarget = null;
 
             if (!string.IsNullOrEmpty(cref))
             {
-                linkTarget = cref;
+                // cref references render as code (not clickable)
+                segmentType = RenderedSegmentType.Code;
                 if (string.IsNullOrEmpty(displayText))
                 {
                     displayText = GetTypeNameFromCref(cref);
@@ -506,6 +508,8 @@ namespace CommentsVS.Services
             }
             else if (!string.IsNullOrEmpty(href))
             {
+                // href links are clickable
+                segmentType = RenderedSegmentType.Link;
                 linkTarget = href;
                 if (string.IsNullOrEmpty(displayText))
                 {
@@ -514,13 +518,19 @@ namespace CommentsVS.Services
             }
             else if (!string.IsNullOrEmpty(langword))
             {
+                // Language keywords render as code
+                segmentType = RenderedSegmentType.Code;
                 displayText = langword;
+            }
+            else
+            {
+                segmentType = RenderedSegmentType.Text;
             }
 
             if (!string.IsNullOrEmpty(displayText))
             {
                 RenderedLine line = GetOrCreateCurrentLine(section);
-                line.Segments.Add(new RenderedSegment(displayText, RenderedSegmentType.Link, linkTarget));
+                line.Segments.Add(new RenderedSegment(displayText, segmentType, linkTarget));
             }
         }
 
@@ -964,7 +974,7 @@ namespace CommentsVS.Services
                 result += " ";
             }
 
-            return result.Trim();
+            return result;
         }
 
         /// <summary>
