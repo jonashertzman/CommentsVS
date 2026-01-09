@@ -113,9 +113,9 @@ namespace CommentsVS.Services
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
-        /// Fast pre-check keyword to avoid regex on lines without LINK.
+        /// Cached empty result list to avoid allocations for the common "no links" case.
         /// </summary>
-        private const string _linkKeyword = "LINK";
+        private static readonly IReadOnlyList<LinkAnchorInfo> _emptyResult = [];
 
         /// <summary>
         /// Parses all LINK references in the given text.
@@ -124,18 +124,25 @@ namespace CommentsVS.Services
         /// <returns>All parsed link anchors found in the text.</returns>
         public static IReadOnlyList<LinkAnchorInfo> Parse(string text)
         {
-            var results = new List<LinkAnchorInfo>();
-
             if (string.IsNullOrEmpty(text))
             {
-                return results;
+                return _emptyResult;
             }
 
-            // Fast pre-check: skip regex if LINK keyword is not present
-            if (text.IndexOf(_linkKeyword, StringComparison.OrdinalIgnoreCase) < 0)
+            // Fast pre-check: skip expensive regex and case-insensitive search if 'L' or 'l' not present.
+            // This avoids the costly OrdinalIgnoreCase IndexOf for the common case of no links.
+            if (text.IndexOf('L') < 0 && text.IndexOf('l') < 0)
             {
-                return results;
+                return _emptyResult;
             }
+
+            // Secondary check: verify LINK keyword exists (case-insensitive)
+            if (text.IndexOf("LINK", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return _emptyResult;
+            }
+
+            var results = new List<LinkAnchorInfo>();
 
             foreach (Match match in _linkRegex.Matches(text))
             {
@@ -215,7 +222,13 @@ namespace CommentsVS.Services
                 return false;
             }
 
-            return text.IndexOf(_linkKeyword, StringComparison.OrdinalIgnoreCase) >= 0
+            // Fast pre-check: skip expensive operations if 'L' or 'l' not present
+            if (text.IndexOf('L') < 0 && text.IndexOf('l') < 0)
+            {
+                return false;
+            }
+
+            return text.IndexOf("LINK", StringComparison.OrdinalIgnoreCase) >= 0
                    && _linkRegex.IsMatch(text);
         }
 
