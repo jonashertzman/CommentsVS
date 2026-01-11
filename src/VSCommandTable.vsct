@@ -286,9 +286,6 @@
   </Commands>
 
   <CommandPlacements>
-    <CommandPlacement guid="CommentsVS" id="ToggleCommentVisibility" priority="0x0100">
-      <Parent guid="CommentsVS" id="ToolbarGroup"/>
-    </CommandPlacement>
     <!-- Place the submenu group on Edit menu -->
     <CommandPlacement guid="CommentsVS" id="CommentsSubMenu" priority="0xFF81">
       <Parent guid="VSEditor" id="Edit.LanguageInfoGroup"/>
