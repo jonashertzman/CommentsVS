@@ -492,9 +492,21 @@ namespace CommentsVS.Adornments
             List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText(strippedSummary, GetRepoInfo());
             var headingBrush = new SolidColorBrush(Color.FromRgb(100, 100, 100));
 
+            var isFirstSegment = true;
             foreach (RenderedSegment segment in segments)
             {
-                Inline inline = CreateInlineForSegment(segment, textBrush, headingBrush);
+                // Trim leading whitespace from the first segment to align properly
+                RenderedSegment segmentToRender = segment;
+                if (isFirstSegment && segment.Text.Length > 0 && char.IsWhiteSpace(segment.Text[0]))
+                {
+                    segmentToRender = new RenderedSegment(segment.Text.TrimStart(), segment.Type, segment.LinkTarget);
+                }
+                isFirstSegment = false;
+
+                if (string.IsNullOrEmpty(segmentToRender.Text))
+                    continue;
+
+                Inline inline = CreateInlineForSegment(segmentToRender, textBrush, headingBrush);
                 textBlock.Inlines.Add(inline);
             }
 
@@ -711,9 +723,21 @@ namespace CommentsVS.Adornments
                         textBlock.FontWeight = FontWeights.SemiBold;
                     }
 
+                    var isFirstSegment = true;
                     foreach (RenderedSegment segment in line.Segments)
                     {
-                        Inline inline = CreateInlineForSegment(segment, textBrush, headingBrush);
+                        // Trim leading whitespace from the first segment to align properly
+                        RenderedSegment segmentToRender = segment;
+                        if (isFirstSegment && segment.Text.Length > 0 && char.IsWhiteSpace(segment.Text[0]))
+                        {
+                            segmentToRender = new RenderedSegment(segment.Text.TrimStart(), segment.Type, segment.LinkTarget);
+                        }
+                        isFirstSegment = false;
+
+                        if (string.IsNullOrEmpty(segmentToRender.Text))
+                            continue;
+
+                        Inline inline = CreateInlineForSegment(segmentToRender, textBrush, headingBrush);
                         textBlock.Inlines.Add(inline);
                     }
 
@@ -721,8 +745,11 @@ namespace CommentsVS.Adornments
                 }
                 else
                 {
+                    // Trim leading whitespace from the text for proper alignment
+                    var trimmedLineText = lineText.TrimStart();
+
                     // Word wrap the line at 100 chars
-                    List<string> wrappedLines = WordWrap(lineText, 100);
+                    List<string> wrappedLines = WordWrap(trimmedLineText, 100);
 
                     for (var i = 0; i < wrappedLines.Count; i++)
                     {
