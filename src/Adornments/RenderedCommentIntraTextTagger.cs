@@ -712,8 +712,9 @@ namespace CommentsVS.Adornments
                         TextWrapping = TextWrapping.Wrap,
                         MaxWidth = 800,
                         Margin = new Thickness(
-                            isListItem ? listIndent * 0.3 : 0,
-                            0, 0,
+                            isListItem ? listIndent : 0,
+                            isListItem ? 3 : 0,
+                            0,
                             itemSpacing)
                     };
 
@@ -761,8 +762,9 @@ namespace CommentsVS.Adornments
                             TextWrapping = TextWrapping.NoWrap,
                             // Use consistent indentation: list items get full indent, continuation lines get more
                             Margin = new Thickness(
-                                i > 0 ? listIndent * 1.5 : (isListItem ? listIndent * 0.3 : 0),
-                                0, 0,
+                                i > 0 ? listIndent * 1.5 : (isListItem ? listIndent : 0),
+                                (i == 0 && isListItem) ? 3 : 0,
+                                0,
                                 itemSpacing)
                         };
 
@@ -1009,7 +1011,7 @@ namespace CommentsVS.Adornments
                                       (trimmedText.Length > 0 && char.IsDigit(trimmedText[0]) && trimmedText.Contains(". "));
                     if (isListItem)
                     {
-                        textBlock.Margin = new Thickness(listIndent * 0.5, 0, 0, itemSpacing * 0.5);
+                        textBlock.Margin = new Thickness(listIndent, 3, 0, itemSpacing * 0.5);
                     }
 
                     foreach (RenderedSegment segment in line.Segments)
