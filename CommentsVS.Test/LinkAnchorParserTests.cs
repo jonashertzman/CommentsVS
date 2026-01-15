@@ -212,14 +212,14 @@ public sealed class LinkAnchorParserTests
     }
 
     [TestMethod]
-    public void Parse_MixedCaseLink_ParsesCorrectly()
+    public void Parse_MixedCaseLink_ReturnsEmptyList()
     {
+        // Mixed case "Link:" is not supported - must be "LINK" or "link:"
         var text = "// Link: path/to/file.cs";
 
         IReadOnlyList<LinkAnchorInfo> results = LinkAnchorParser.Parse(text);
 
-        Assert.HasCount(1, results);
-        Assert.AreEqual("path/to/file.cs", results[0].FilePath);
+        Assert.IsEmpty(results);
     }
 
     #endregion
