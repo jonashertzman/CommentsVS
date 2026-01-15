@@ -1,10 +1,54 @@
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using CommentsVS.Services;
 
 namespace CommentsVS.Options
 {
+    /// <summary>
+    /// Type converter that displays enum values using their Description attributes.
+    /// </summary>
+    public class EnumDescriptionTypeConverter(Type type) : EnumConverter(type)
+    {
+        public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
+        {
+            if (destinationType == typeof(string) && value != null)
+            {
+                FieldInfo fieldInfo = value.GetType().GetField(value.ToString());
+                if (fieldInfo != null)
+                {
+                    DescriptionAttribute descriptionAttribute = fieldInfo.GetCustomAttribute<DescriptionAttribute>();
+                    if (descriptionAttribute != null)
+                    {
+                        return descriptionAttribute.Description;
+                    }
+                }
+            }
+            return base.ConvertTo(context, culture, value, destinationType);
+        }
+
+        public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
+        {
+            if (value is string stringValue)
+            {
+                foreach (FieldInfo field in EnumType.GetFields(BindingFlags.Public | BindingFlags.Static))
+                {
+                    DescriptionAttribute descriptionAttribute = field.GetCustomAttribute<DescriptionAttribute>();
+                    if (descriptionAttribute != null && descriptionAttribute.Description == stringValue)
+                    {
+                        return field.GetValue(null);
+                    }
+                    if (field.Name == stringValue)
+                    {
+                        return field.GetValue(null);
+                    }
+                }
+            }
+            return base.ConvertFrom(context, culture, value);
+        }
+    }
     /// <summary>
     /// Rendering mode for XML documentation comments.
     /// </summary>
@@ -13,17 +57,50 @@ namespace CommentsVS.Options
         /// <summary>
         /// Show raw XML comments with standard Visual Studio syntax.
         /// </summary>
+        [Description("Off")]
         Off = 0,
 
         /// <summary>
         /// Use outlining with stripped XML tags when collapsed.
         /// </summary>
+        [Description("Compact")]
         Compact = 1,
 
         /// <summary>
         /// Replace comments with rich formatted rendering optimized for reading.
         /// </summary>
+        [Description("Full")]
         Full = 2
+    }
+
+    /// <summary>
+    /// Controls when the left border is shown on rendered comments.
+    /// </summary>
+    public enum BorderStyle
+    {
+        /// <summary>
+        /// No border is shown.
+        /// </summary>
+        [Description("Off")]
+        Off = 0,
+
+        /// <summary>
+        /// Border is shown only on multi-line (Full mode) comments.
+        /// </summary>
+        [Description("Multiline only")]
+        MultilineOnly = 1,
+
+        /// <summary>
+        /// Border is shown only on inline (Compact mode) comments.
+        /// </summary>
+        [Description("Inline only")]
+        InlineOnly = 2,
+
+        /// <summary>
+        /// Border is always shown on all rendered comments.
+        /// </summary>
+        [Description("Always")]
+        Always = 3
     }
 
     /// <summary>
@@ -127,8 +204,15 @@ namespace CommentsVS.Options
         [DisplayName("Rendering mode")]
         [Description("Controls how XML documentation comments are displayed. Off: Raw XML syntax. Compact: Outlining with stripped tags. Full: Rich formatted rendering. Toggle with Ctrl+M, Ctrl+R.")]
         [DefaultValue(RenderingMode.Off)]
-        [TypeConverter(typeof(EnumConverter))]
+        [TypeConverter(typeof(EnumDescriptionTypeConverter))]
         public RenderingMode CommentRenderingMode { get; set; } = RenderingMode.Off;
+
+        [Category(_renderingCategory)]
+        [DisplayName("Left border")]
+        [Description("Controls when a vertical line is shown on the left side of rendered comments.")]
+        [DefaultValue(BorderStyle.MultilineOnly)]
+        [TypeConverter(typeof(EnumDescriptionTypeConverter))]
+        public BorderStyle LeftBorder { get; set; } = BorderStyle.MultilineOnly;
 
         private const string _anchorsCategory = "Code Anchors";
 
@@ -175,7 +259,7 @@ namespace CommentsVS.Options
                     if (!string.IsNullOrEmpty(trimmed))
                     {
                         // Ensure extension starts with a dot
-                        extensions.Add(trimmed.StartsWith(".") ? trimmed : "." + trimmed);
+                        _ = extensions.Add(trimmed.StartsWith(".") ? trimmed : "." + trimmed);
                     }
                 }
             }
@@ -206,7 +290,7 @@ namespace CommentsVS.Options
                     var trimmed = folder.Trim();
                     if (!string.IsNullOrEmpty(trimmed))
                     {
-                        folders.Add(trimmed);
+                        _ = folders.Add(trimmed);
                     }
                 }
             }
@@ -238,7 +322,7 @@ namespace CommentsVS.Options
                     var trimmed = tag.Trim().ToUpperInvariant();
                     if (!string.IsNullOrEmpty(trimmed))
                     {
-                        tags.Add(trimmed);
+                        _ = tags.Add(trimmed);
                     }
                 }
             }

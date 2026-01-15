@@ -245,8 +245,8 @@ namespace CommentsVS.Adornments
         }
 
         /// <summary>
-        /// Public method for command handler to invoke ESC key behavior.
-        /// Returns true if the ESC key was handled (hidden a comment).
+        /// Public method for command handler to invoke ESC key behavior. Returns true if the ESC key was handled
+        /// (hidden a comment).
         /// </summary>
         public bool HandleEscapeKey(int startLine)
         {
@@ -563,11 +563,11 @@ namespace CommentsVS.Adornments
                 textBlock.Inlines.Add(inline);
             }
 
-            // Double-click to switch to raw source mode for editing
-            AttachDoubleClickHandler(textBlock, block);
+                // Double-click to switch to raw source mode for editing
+                AttachDoubleClickHandler(textBlock, block);
 
-            return textBlock;
-        }
+                return WrapWithLeftBorder(textBlock, _headingBrush, isMultiline: false);
+            }
 
 
 
@@ -625,13 +625,21 @@ namespace CommentsVS.Adornments
                 .Where(s => s.Type != CommentSectionType.Param && s.Type != CommentSectionType.TypeParam)
                 .ToList();
 
+            // Calculate max name lengths for alignment
+            var maxTypeParamNameLength = typeParamSections.Count > 0
+                ? typeParamSections.Max(s => (s.Name ?? "").Length)
+                : 0;
+            var maxParamNameLength = paramSections.Count > 0
+                ? paramSections.Max(s => (s.Name ?? "").Length)
+                : 0;
+
             // Type parameters (if any)
             if (typeParamSections.Count > 0)
             {
                 for (var i = 0; i < typeParamSections.Count; i++)
                 {
                     AddParameterLine(panel, typeParamSections[i], fontSize, fontFamily, textBrush,
-                        listIndent, itemSpacing, isLast: i == typeParamSections.Count - 1);
+                        listIndent, itemSpacing, isLast: i == typeParamSections.Count - 1, maxTypeParamNameLength);
                 }
                 // Add spacing after type params group if there are more sections
                 if (paramSections.Count > 0 || otherSections.Count > 0)
@@ -646,7 +654,7 @@ namespace CommentsVS.Adornments
                 for (var i = 0; i < paramSections.Count; i++)
                 {
                     AddParameterLine(panel, paramSections[i], fontSize, fontFamily, textBrush,
-                        listIndent, itemSpacing, isLast: i == paramSections.Count - 1);
+                        listIndent, itemSpacing, isLast: i == paramSections.Count - 1, maxParamNameLength);
                 }
                 // Add spacing after params group if there are more sections
                 if (otherSections.Count > 0)
@@ -669,11 +677,55 @@ namespace CommentsVS.Adornments
             }
 
             // Double-click anywhere on the panel to switch to raw source mode for editing
-            panel.Cursor = Cursors.Hand;
-            AttachDoubleClickHandler(panel, block);
+                panel.Cursor = Cursors.Hand;
+                AttachDoubleClickHandler(panel, block);
 
-            return panel;
-        }
+                return WrapWithLeftBorder(panel, headingBrush, isMultiline: true);
+            }
+
+            /// <summary>
+            /// Wraps the content element with a left border based on the border style setting.
+            /// </summary>
+            private static FrameworkElement WrapWithLeftBorder(FrameworkElement content, Brush borderBrush, bool isMultiline)
+            {
+                BorderStyle borderStyle = General.Instance.LeftBorder;
+
+                // Check if border should be shown based on style and comment type
+                var showBorder = borderStyle switch
+                {
+                    BorderStyle.Off => false,
+                    BorderStyle.MultilineOnly => isMultiline,
+                    BorderStyle.InlineOnly => !isMultiline,
+                    BorderStyle.Always => true,
+                    _ => false
+                };
+
+                if (!showBorder)
+                {
+                    return content;
+                }
+
+                var container = new DockPanel
+                {
+                    Background = Brushes.Transparent
+                };
+
+                // Create the left border line
+                var leftBorder = new Border
+                {
+                    Width = 1,
+                    Opacity = 0.5,
+                    Background = borderBrush,
+                    Margin = new Thickness(0, 0, 6, 0), // 6px gap between border and content
+                    VerticalAlignment = VerticalAlignment.Stretch
+                };
+
+                DockPanel.SetDock(leftBorder, Dock.Left);
+                container.Children.Add(leftBorder);
+                container.Children.Add(content);
+
+                return container;
+            }
 
         /// <summary>
         /// Word wraps text at the specified maximum line length.
@@ -840,8 +892,8 @@ namespace CommentsVS.Adornments
         }
 
         /// <summary>
-        /// Creates an Inline element for a rendered segment with appropriate formatting.
-        /// Returns a Hyperlink for links and issue references, Run for other types.
+        /// Creates an Inline element for a rendered segment with appropriate formatting. Returns a Hyperlink for links
+        /// and issue references, Run for other types.
         /// </summary>
         private Inline CreateInlineForSegment(RenderedSegment segment, Brush textBrush, Brush headingBrush)
         {
@@ -945,11 +997,12 @@ namespace CommentsVS.Adornments
 
         private static void AddParameterLine(StackPanel panel, RenderedCommentSection section,
             double fontSize, FontFamily fontFamily, Brush textBrush,
-            double listIndent, double itemSpacing, bool isLast)
+            double listIndent, double itemSpacing, bool isLast, int maxNameLength)
         {
             var content = GetSectionContent(section);
             var name = section.Name ?? "";
-            var prefix = "• " + name + " — ";
+            var paddedName = name.PadRight(maxNameLength);
+            var prefix = paddedName + " — ";
             var fullText = prefix + content;
 
             // Word wrap at 100 chars
@@ -964,7 +1017,7 @@ namespace CommentsVS.Adornments
                     Foreground = textBrush,
                     TextWrapping = TextWrapping.NoWrap,
                     Margin = new Thickness(
-                        i > 0 ? listIndent : 0,
+                        listIndent,  // Always indent parameters
                         0,
                         0,
                         i == wrappedLines.Count - 1 ? (isLast ? 0 : itemSpacing) : 0)
@@ -974,9 +1027,8 @@ namespace CommentsVS.Adornments
 
                 if (i == 0)
                 {
-                    // First line has bullet, name (bold), and start of content
-                    textBlock.Inlines.Add(new Run("• ") { Foreground = textBrush });
-                    textBlock.Inlines.Add(new Run(name)
+                    // First line has name (bold, padded for alignment), and description
+                    textBlock.Inlines.Add(new Run(paddedName)
                     {
                         Foreground = textBrush,
                         FontWeight = FontWeights.Bold

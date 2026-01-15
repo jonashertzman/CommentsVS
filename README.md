@@ -84,6 +84,15 @@ You can also enable **Collapse XML Doc Comments by Default** from the **Edit > C
 | Rendered Comment - Code | Inline code formatting |
 | Rendered Comment - Link | Links, param refs, and type refs |
 
+**Left border indicator:** A subtle vertical line on the left edge helps distinguish rendered comments from code—similar to Markdown blockquotes. Control when it appears via **Tools > Options > Comments > Left Border**:
+
+| Option | Description |
+|--------|-------------|
+| Off | No border shown |
+| Multiline only | Border on expanded (Full mode) comments only (default) |
+| Inline only | Border on compact (single-line) comments only |
+| Always | Border on all rendered comments |
+
 ![Rendered Comments](art/rendered-comments.png)
 
 ### Markdown Formatting in Comments
