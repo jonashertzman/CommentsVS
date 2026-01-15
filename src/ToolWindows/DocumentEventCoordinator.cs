@@ -1,0 +1,128 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace CommentsVS.ToolWindows
+{
+    /// <summary>
+    /// Coordinates document-level events (save/open/close) for the Code Anchors tool window,
+    /// triggering rescans of individual files when they change.
+    /// </summary>
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="DocumentEventCoordinator"/> class.
+    /// </remarks>
+    /// <param name="cache">The anchor cache.</param>
+    /// <param name="scanner">The solution scanner.</param>
+    internal sealed class DocumentEventCoordinator(SolutionAnchorCache cache, SolutionAnchorScanner scanner) : IDisposable
+    {
+        private readonly SolutionAnchorCache _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        private readonly SolutionAnchorScanner _scanner = scanner ?? throw new ArgumentNullException(nameof(scanner));
+        private bool _disposed;
+
+        /// <summary>
+        /// Raised when a document has been scanned and the UI should refresh.
+        /// </summary>
+        public event EventHandler DocumentScanned;
+
+        /// <summary>
+        /// Subscribes to document events. Must be called from the UI thread.
+        /// </summary>
+        public void Subscribe()
+        {
+            VS.Events.DocumentEvents.Saved += OnDocumentSaved;
+            VS.Events.DocumentEvents.Opened += OnDocumentOpened;
+            VS.Events.DocumentEvents.Closed += OnDocumentClosed;
+        }
+
+        private void OnDocumentSaved(string filePath)
+        {
+            // Rescan the saved file and update the cache
+            if (_cache != null && _scanner != null)
+            {
+                ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+                {
+                    var projectName = await GetProjectNameForFileAsync(filePath);
+                    IReadOnlyList<AnchorItem> anchors = await _scanner.ScanFileAsync(filePath, projectName);
+                    _cache.AddOrUpdateFile(filePath, anchors);
+
+                    // Notify UI to refresh
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    DocumentScanned?.Invoke(this, EventArgs.Empty);
+                }).FireAndForget();
+            }
+        }
+
+        private void OnDocumentOpened(string filePath)
+        {
+            // Scan the opened file and add to cache (for misc files without a solution)
+            if (_cache != null && _scanner != null)
+            {
+                ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+                {
+                    var projectName = await GetProjectNameForFileAsync(filePath);
+                    IReadOnlyList<AnchorItem> anchors = await _scanner.ScanFileAsync(filePath, projectName);
+                    _cache.AddOrUpdateFile(filePath, anchors);
+
+                    // Notify UI to refresh
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    DocumentScanned?.Invoke(this, EventArgs.Empty);
+                }).FireAndForget();
+            }
+        }
+
+        private void OnDocumentClosed(string filePath)
+        {
+            // Remove the file from cache when closed (for misc files without a solution)
+            // Only do this when no solution is loaded, otherwise the file stays in cache
+            if (_cache != null)
+            {
+                ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                    // Check if a solution is loaded
+                    var solutionLoaded = await VS.Solutions.IsOpenAsync();
+                    if (!solutionLoaded)
+                    {
+                        // No solution - remove the file from cache
+                        _cache.RemoveFile(filePath);
+                        DocumentScanned?.Invoke(this, EventArgs.Empty);
+                    }
+                }).FireAndForget();
+            }
+        }
+
+        /// <summary>
+        /// Gets the project name for the specified file path.
+        /// </summary>
+        /// <param name="filePath">The file path.</param>
+        /// <returns>The project name, or null if not found.</returns>
+        public async Task<string> GetProjectNameForFileAsync(string filePath)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            try
+            {
+                PhysicalFile file = await PhysicalFile.FromFileAsync(filePath);
+                Project project = file?.ContainingProject;
+                return project?.Name;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            VS.Events.DocumentEvents.Saved -= OnDocumentSaved;
+            VS.Events.DocumentEvents.Opened -= OnDocumentOpened;
+            VS.Events.DocumentEvents.Closed -= OnDocumentClosed;
+        }
+    }
+}

@@ -1,15 +1,14 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using CommentsVS.Options;
-using Microsoft.VisualStudio.Text;
 
 namespace CommentsVS.ToolWindows
 {
     /// <summary>
     /// Tool window for displaying code anchors (TODO, HACK, ANCHOR, etc.) from the entire solution.
+    /// Coordinates helper classes for navigation, solution events, document events, and filtering.
     /// </summary>
     public class CodeAnchorsToolWindow : BaseToolWindow<CodeAnchorsToolWindow>
     {
@@ -18,6 +17,12 @@ namespace CommentsVS.ToolWindows
         private SolutionAnchorScanner _scanner;
         private SolutionAnchorCache _cache;
         private AnchorScope _currentScope = AnchorScope.EntireSolution;
+
+        // Extracted helper classes for Single Responsibility Principle
+        private AnchorNavigationService _navigationService;
+        private SolutionEventCoordinator _solutionEventCoordinator;
+        private DocumentEventCoordinator _documentEventCoordinator;
+        private AnchorScopeFilter _scopeFilter;
 
         /// <summary>
         /// Gets the current instance of the tool window (set after CreateAsync is called).
@@ -51,9 +56,7 @@ namespace CommentsVS.ToolWindows
 
         public override string GetTitle(int toolWindowId) => "Code Anchors";
 
-
         public override Type PaneType => typeof(CodeAnchorsToolWindowPane);
-
 
         public override async Task<FrameworkElement> CreateAsync(int toolWindowId, CancellationToken cancellationToken)
         {
@@ -63,10 +66,21 @@ namespace CommentsVS.ToolWindows
             _cache = new SolutionAnchorCache();
             _scanner = new SolutionAnchorScanner(_anchorService, _cache);
 
+            // Initialize helper classes
+            _navigationService = new AnchorNavigationService();
+            _solutionEventCoordinator = new SolutionEventCoordinator(_cache, _scanner);
+            _documentEventCoordinator = new DocumentEventCoordinator(_cache, _scanner);
+            _scopeFilter = new AnchorScopeFilter(_documentEventCoordinator);
+
             // Subscribe to scanner events (doesn't require main thread)
             _scanner.ScanStarted += OnScanStarted;
             _scanner.ScanProgress += OnScanProgress;
             _scanner.ScanCompleted += OnScanCompleted;
+
+            // Subscribe to helper class events
+            _solutionEventCoordinator.CacheUpdated += OnCacheUpdated;
+            _solutionEventCoordinator.SolutionClosed += OnSolutionClosedEvent;
+            _documentEventCoordinator.DocumentScanned += OnDocumentScanned;
 
             // Get options before switching threads
             General options = await General.GetLiveInstanceAsync();
@@ -77,14 +91,9 @@ namespace CommentsVS.ToolWindows
             _control = new CodeAnchorsControl();
             _control.AnchorActivated += OnAnchorActivated;
 
-            // Subscribe to solution events
-            VS.Events.SolutionEvents.OnAfterOpenSolution += OnSolutionOpened;
-            VS.Events.SolutionEvents.OnAfterCloseSolution += OnSolutionClosed;
-
-            // Subscribe to document events for real-time updates
-            VS.Events.DocumentEvents.Saved += OnDocumentSaved;
-            VS.Events.DocumentEvents.Opened += OnDocumentOpened;
-            VS.Events.DocumentEvents.Closed += OnDocumentClosed;
+            // Subscribe helper classes to VS events
+            _solutionEventCoordinator.Subscribe();
+            _documentEventCoordinator.Subscribe();
 
             // Start scanning if enabled (runs on background thread)
             if (options.ScanSolutionOnLoad)
@@ -94,6 +103,22 @@ namespace CommentsVS.ToolWindows
             }
 
             return _control;
+        }
+
+        private void OnCacheUpdated(object sender, System.EventArgs e)
+        {
+            RefreshAnchorsFromCache();
+        }
+
+        private void OnSolutionClosedEvent(object sender, System.EventArgs e)
+        {
+            _control?.ClearAnchors();
+            _control?.UpdateStatus("No solution loaded");
+        }
+
+        private void OnDocumentScanned(object sender, System.EventArgs e)
+        {
+            RefreshAnchorsFromCache();
         }
 
         /// <summary>
@@ -137,13 +162,7 @@ namespace CommentsVS.ToolWindows
         /// </summary>
         public async Task NavigateToNextAnchorAsync()
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            AnchorItem anchor = _control?.SelectNextAnchor();
-            if (anchor != null)
-            {
-                await NavigateToAnchorAsync(anchor);
-            }
+            await _navigationService.NavigateToNextAnchorAsync(_control);
         }
 
         /// <summary>
@@ -151,121 +170,10 @@ namespace CommentsVS.ToolWindows
         /// </summary>
         public async Task NavigateToPreviousAnchorAsync()
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            AnchorItem anchor = _control?.SelectPreviousAnchor();
-            if (anchor != null)
-            {
-                await NavigateToAnchorAsync(anchor);
-            }
+            await _navigationService.NavigateToPreviousAnchorAsync(_control);
         }
 
-        private void OnAnchorActivated(object sender, AnchorItem anchor) => NavigateToAnchorAsync(anchor).FireAndForget();
-
-        private void OnSolutionOpened(Solution solution)
-        {
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
-            {
-                // Try to load cache from disk first
-                var solutionDir = await GetSolutionDirectoryAsync();
-                var cacheLoaded = false;
-
-                if (!string.IsNullOrEmpty(solutionDir))
-                {
-                    cacheLoaded = _cache.LoadFromDisk(solutionDir);
-                    if (cacheLoaded)
-                    {
-                        // Refresh UI with loaded cache
-                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                        RefreshAnchorsFromCache();
-                    }
-                }
-
-                // If cache not loaded or scan on load is enabled, scan the solution
-                General options = await General.GetLiveInstanceAsync();
-                if (!cacheLoaded || options.ScanSolutionOnLoad)
-                {
-                    await ScanSolutionAsync();
-                }
-            }).FireAndForget();
-        }
-
-        private void OnSolutionClosed()
-        {
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
-            {
-                // Save cache to disk before clearing
-                var solutionDir = await GetSolutionDirectoryAsync();
-                if (!string.IsNullOrEmpty(solutionDir))
-                {
-                    _cache?.SaveToDisk(solutionDir);
-                }
-
-                _cache?.Clear();
-
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                _control?.ClearAnchors();
-                _control?.UpdateStatus("No solution loaded");
-            }).FireAndForget();
-        }
-
-        private void OnDocumentSaved(string filePath)
-        {
-            // Rescan the saved file and update the cache
-            if (_cache != null && _scanner != null)
-            {
-                ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
-                {
-                    var projectName = await GetProjectNameForFileAsync(filePath);
-                    IReadOnlyList<AnchorItem> anchors = await _scanner.ScanFileAsync(filePath, projectName);
-                    _cache.AddOrUpdateFile(filePath, anchors);
-
-                    // Refresh the UI
-                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                    RefreshAnchorsFromCache();
-                }).FireAndForget();
-            }
-        }
-
-        private void OnDocumentOpened(string filePath)
-        {
-            // Scan the opened file and add to cache (for misc files without a solution)
-            if (_cache != null && _scanner != null)
-            {
-                ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
-                {
-                    var projectName = await GetProjectNameForFileAsync(filePath);
-                    IReadOnlyList<AnchorItem> anchors = await _scanner.ScanFileAsync(filePath, projectName);
-                    _cache.AddOrUpdateFile(filePath, anchors);
-
-                    // Refresh the UI
-                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                    RefreshAnchorsFromCache();
-                }).FireAndForget();
-            }
-        }
-
-        private void OnDocumentClosed(string filePath)
-        {
-            // Remove the file from cache when closed (for misc files without a solution)
-            // Only do this when no solution is loaded, otherwise the file stays in cache
-            if (_cache != null)
-            {
-                ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
-                {
-                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-                    // Check if a solution is loaded
-                    var solutionLoaded = await VS.Solutions.IsOpenAsync();
-                    if (!solutionLoaded)
-                    {
-                        // No solution - remove the file from cache
-                        _cache.RemoveFile(filePath);
-                        RefreshAnchorsFromCache();
-                    }
-                }).FireAndForget();
-            }
-        }
+        private void OnAnchorActivated(object sender, AnchorItem anchor) => _navigationService.NavigateToAnchorAsync(anchor).FireAndForget();
 
         private void OnScanStarted(object sender, EventArgs e)
         {
@@ -301,11 +209,7 @@ namespace CommentsVS.ToolWindows
                     RefreshAnchorsFromCache();
 
                     // Save cache to disk after successful scan
-                    var solutionDir = await GetSolutionDirectoryAsync();
-                    if (!string.IsNullOrEmpty(solutionDir))
-                    {
-                        _cache?.SaveToDisk(solutionDir);
-                    }
+                    await _solutionEventCoordinator.SaveCacheAsync();
                 }
             }).FireAndForget();
         }
@@ -324,161 +228,9 @@ namespace CommentsVS.ToolWindows
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 IReadOnlyList<AnchorItem> allAnchors = _cache.GetAllAnchors();
-                IReadOnlyList<AnchorItem> filteredAnchors = await ApplyScopeFilterAsync(allAnchors);
+                IReadOnlyList<AnchorItem> filteredAnchors = await _scopeFilter.ApplyFilterAsync(allAnchors, _currentScope);
                 _control.UpdateAnchors(filteredAnchors);
             });
-        }
-
-        private async Task<IReadOnlyList<AnchorItem>> ApplyScopeFilterAsync(IReadOnlyList<AnchorItem> anchors)
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            return _currentScope switch
-            {
-                AnchorScope.EntireSolution => anchors,
-                AnchorScope.CurrentProject => await FilterByCurrentProjectAsync(anchors),
-                AnchorScope.CurrentDocument => await FilterByCurrentDocumentAsync(anchors),
-                AnchorScope.OpenDocuments => await FilterByOpenDocumentsAsync(anchors),
-                _ => anchors,
-            };
-        }
-
-        private async Task<IReadOnlyList<AnchorItem>> FilterByCurrentProjectAsync(IReadOnlyList<AnchorItem> anchors)
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
-            if (docView?.FilePath == null)
-            {
-                return anchors;
-            }
-
-            var projectName = await GetProjectNameForFileAsync(docView.FilePath);
-            if (string.IsNullOrEmpty(projectName))
-            {
-                return anchors;
-            }
-
-            return [.. anchors.Where(a => a.Project?.Equals(projectName, StringComparison.OrdinalIgnoreCase) == true)];
-        }
-
-        private async Task<IReadOnlyList<AnchorItem>> FilterByCurrentDocumentAsync(IReadOnlyList<AnchorItem> anchors)
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
-
-            if (docView?.FilePath == null)
-            {
-                return [];
-            }
-
-            return [.. anchors.Where(a => a.FilePath?.Equals(docView.FilePath, StringComparison.OrdinalIgnoreCase) == true)];
-        }
-
-        private async Task<IReadOnlyList<AnchorItem>> FilterByOpenDocumentsAsync(IReadOnlyList<AnchorItem> anchors)
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            try
-            {
-                // Use DTE to get open documents
-                EnvDTE.DTE dte = await VS.GetServiceAsync<EnvDTE.DTE, EnvDTE.DTE>();
-                if (dte?.Documents == null)
-                {
-                    return anchors;
-                }
-
-                var openPathsSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (EnvDTE.Document doc in dte.Documents)
-                {
-                    if (!string.IsNullOrEmpty(doc.FullName))
-                    {
-                        openPathsSet.Add(doc.FullName);
-                    }
-                }
-
-                return [.. anchors.Where(a => a.FilePath != null && openPathsSet.Contains(a.FilePath))];
-            }
-            catch
-            {
-                // Fall back to returning all anchors if we can't get open documents
-                return anchors;
-            }
-        }
-
-        private async Task NavigateToAnchorAsync(AnchorItem anchor)
-        {
-            if (anchor == null)
-            {
-                return;
-            }
-
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            // Open the document
-            DocumentView docView = await VS.Documents.OpenAsync(anchor.FilePath);
-            if (docView?.TextView == null)
-            {
-                return;
-            }
-
-            // Navigate to the line
-            try
-            {
-                ITextSnapshot snapshot = docView.TextView.TextSnapshot;
-                if (anchor.LineNumber > 0 && anchor.LineNumber <= snapshot.LineCount)
-                {
-                    ITextSnapshotLine line = snapshot.GetLineFromLineNumber(anchor.LineNumber - 1);
-                    SnapshotPoint point = line.Start.Add(Math.Min(anchor.Column, line.Length));
-
-                    docView.TextView.Caret.MoveTo(point);
-                    docView.TextView.ViewScroller.EnsureSpanVisible(
-                        new SnapshotSpan(point, 0),
-                        Microsoft.VisualStudio.Text.Editor.EnsureSpanVisibleOptions.AlwaysCenter);
-                }
-            }
-            catch (Exception ex)
-            {
-                await ex.LogAsync();
-            }
-        }
-
-        private async Task<string> GetProjectNameForFileAsync(string filePath)
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            try
-            {
-                PhysicalFile file = await PhysicalFile.FromFileAsync(filePath);
-                Project project = file?.ContainingProject;
-                return project?.Name;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private async Task<string> GetSolutionDirectoryAsync()
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            try
-            {
-                Solution solution = await VS.Solutions.GetCurrentSolutionAsync();
-                var solutionPath = solution?.FullPath;
-                if (!string.IsNullOrEmpty(solutionPath))
-                {
-                    return System.IO.Path.GetDirectoryName(solutionPath);
-                }
-            }
-            catch
-            {
-                // Ignore errors
-            }
-
-            return null;
         }
     }
 }

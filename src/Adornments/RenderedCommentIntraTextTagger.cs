@@ -19,22 +19,6 @@ using Microsoft.VisualStudio.Utilities;
 
 namespace CommentsVS.Adornments
 {
-    /// <summary>
-    /// Simple command implementation for keyboard bindings
-    /// </summary>
-    internal class DelegateCommand(Action execute) : ICommand
-    {
-        private readonly Action _execute = execute ?? throw new ArgumentNullException(nameof(execute));
-
-        public event EventHandler CanExecuteChanged { add { } remove { } }
-
-        public bool CanExecute(object parameter) => true;
-
-        public void Execute(object parameter) => _execute();
-    }
-
-
-
     [Export(typeof(IViewTaggerProvider))]
     [ContentType(SupportedContentTypes.CSharp)]
     [ContentType(SupportedContentTypes.VisualBasic)]
@@ -55,10 +39,14 @@ namespace CommentsVS.Adornments
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
         {
             if (textView == null || textView is not IWpfTextView wpfTextView)
+            {
                 return null;
+            }
 
             if (textView.TextBuffer != buffer)
+            {
                 return null;
+            }
 
             IEditorFormatMap formatMap = FormatMapService.GetEditorFormatMap(wpfTextView);
             return wpfTextView.Properties.GetOrCreateSingletonProperty(
@@ -68,9 +56,11 @@ namespace CommentsVS.Adornments
 
     internal sealed class RenderedCommentIntraTextTagger : IntraTextAdornmentTagger<XmlDocCommentBlock, FrameworkElement>
     {
-        private readonly HashSet<int> _temporarilyHiddenComments = [];
-        private readonly HashSet<int> _recentlyEditedLines = [];
-        private int? _lastCaretLine;
+        // Extracted helper classes for Single Responsibility Principle
+        private readonly CommentVisibilityManager _visibilityManager;
+        private readonly CaretTracker _caretTracker;
+        private readonly TaggerKeyboardHandler _keyboardHandler;
+
         private GitRepositoryInfo _repoInfo;
         private bool _repoInfoInitialized;
         private readonly string _filePath;
@@ -87,6 +77,16 @@ namespace CommentsVS.Adornments
             _formatMap = formatMap;
             UpdateBrushesFromFormatMap();
 
+            // Initialize helper classes
+            _visibilityManager = new CommentVisibilityManager();
+            _visibilityManager.VisibilityChanged += OnVisibilityChanged;
+
+            _caretTracker = new CaretTracker(view, _visibilityManager);
+            _caretTracker.RefreshRequested += OnRefreshRequested;
+
+            _keyboardHandler = new TaggerKeyboardHandler(view, _visibilityManager);
+            _keyboardHandler.RefreshRequested += OnRefreshRequested;
+
             // Get file path for issue reference resolution
             if (view.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
             {
@@ -96,7 +96,6 @@ namespace CommentsVS.Adornments
             }
 
             SetRenderingModeHelper.RenderedCommentsStateChanged += OnRenderedStateChanged;
-            view.Caret.PositionChanged += OnCaretPositionChanged;
             view.TextBuffer.Changed += OnBufferChanged;
 
             // Listen for zoom level changes to refresh adornments with new font size
@@ -104,16 +103,6 @@ namespace CommentsVS.Adornments
 
             // Listen for format map changes (user changed colors in Fonts and Colors)
             _formatMap.FormatMappingChanged += OnFormatMappingChanged;
-
-            // Hook into keyboard events at multiple levels
-            view.VisualElement.PreviewKeyDown += OnViewKeyDown;
-
-            // Add input binding for ESC key
-            var escapeBinding = new KeyBinding(
-                new DelegateCommand(HandleEscapeKeyInternal),
-                Key.Escape,
-                ModifierKeys.None);
-            view.VisualElement.InputBindings.Add(escapeBinding);
 
             // Store tagger in view properties so command handler can find it
             view.Properties[typeof(RenderedCommentIntraTextTagger)] = this;
@@ -123,10 +112,10 @@ namespace CommentsVS.Adornments
         {
             // Check if any of our format definitions changed
             if (e.ChangedItems.Any(item =>
-                item == CommentTagClassificationTypes.RenderedText ||
-                item == CommentTagClassificationTypes.RenderedHeading ||
-                item == CommentTagClassificationTypes.RenderedCode ||
-                item == CommentTagClassificationTypes.RenderedLink))
+                item is CommentTagClassificationTypes.RenderedText or
+                CommentTagClassificationTypes.RenderedHeading or
+                CommentTagClassificationTypes.RenderedCode or
+                CommentTagClassificationTypes.RenderedLink))
             {
                 UpdateBrushesFromFormatMap();
                 ClearAdornmentCache();
@@ -149,26 +138,43 @@ namespace CommentsVS.Adornments
         private Brush GetBrushFromFormatMap(string classificationTypeName)
         {
             ResourceDictionary properties = _formatMap.GetProperties(classificationTypeName);
-            if (properties != null && properties.Contains(EditorFormatDefinition.ForegroundBrushId))
-            {
-                return properties[EditorFormatDefinition.ForegroundBrushId] as Brush;
-            }
-            return null;
+            return properties != null && properties.Contains(EditorFormatDefinition.ForegroundBrushId)
+                ? properties[EditorFormatDefinition.ForegroundBrushId] as Brush
+                : null;
+        }
+
+        private void OnVisibilityChanged(object sender, EventArgs e)
+        {
+            // Visibility manager state changed, refresh tags
+            DeferredRefreshTags();
+        }
+
+        private void OnRefreshRequested(object sender, EventArgs e)
+        {
+            // Helper class requested a refresh
+            DeferredRefreshTags();
         }
 
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
+                // Dispose helper classes
+                _caretTracker?.Dispose();
+                _keyboardHandler?.Dispose();
+
+                // Unsubscribe from helper class events
+                _visibilityManager?.VisibilityChanged -= OnVisibilityChanged;
+                _caretTracker?.RefreshRequested -= OnRefreshRequested;
+                _keyboardHandler?.RefreshRequested -= OnRefreshRequested;
+
                 SetRenderingModeHelper.RenderedCommentsStateChanged -= OnRenderedStateChanged;
-                view.Caret.PositionChanged -= OnCaretPositionChanged;
                 view.TextBuffer.Changed -= OnBufferChanged;
                 view.ZoomLevelChanged -= OnZoomLevelChanged;
-                view.VisualElement.PreviewKeyDown -= OnViewKeyDown;
                 _formatMap.FormatMappingChanged -= OnFormatMappingChanged;
 
                 // Remove from view properties
-                view.Properties.RemoveProperty(typeof(RenderedCommentIntraTextTagger));
+                _ = view.Properties.RemoveProperty(typeof(RenderedCommentIntraTextTagger));
             }
 
             base.Dispose(disposing);
@@ -218,17 +224,14 @@ namespace CommentsVS.Adornments
                 var startLine = e.After.GetLineFromPosition(change.NewPosition).LineNumber;
                 var endLine = e.After.GetLineFromPosition(change.NewEnd).LineNumber;
 
-                for (var line = startLine; line <= endLine; line++)
-                {
-                    _recentlyEditedLines.Add(line);
-                }
+                _visibilityManager.MarkLinesEdited(startLine, endLine);
             }
         }
 
         private void DeferredRefreshTags()
         {
 #pragma warning disable VSTHRD001, VSTHRD110 // Intentional fire-and-forget for UI update
-            view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
+            _ = view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (!view.IsClosed)
                 {
@@ -250,148 +253,17 @@ namespace CommentsVS.Adornments
         /// </summary>
         public bool HandleEscapeKey(int startLine)
         {
-            // If comment is rendered, hide it
-            if (!_temporarilyHiddenComments.Contains(startLine))
-            {
-                HideCommentRendering(startLine);
-                return true;
-            }
-
-            return false;
+            return _keyboardHandler.HandleEscapeKey(startLine);
         }
-
-        private void HandleEscapeKeyInternal()
-        {
-            if (General.Instance.CommentRenderingMode != RenderingMode.Full)
-                return;
-
-            var caretLine = view.Caret.Position.BufferPosition.GetContainingLine().LineNumber;
-
-            // Use cached blocks for performance
-            IReadOnlyList<XmlDocCommentBlock> blocks = XmlDocCommentParser.GetCachedCommentBlocks(view.TextBuffer);
-            if (blocks == null)
-            {
-                return;
-            }
-
-            foreach (XmlDocCommentBlock block in blocks)
-            {
-                // When rendered, the adornment appears on StartLine only (the block is collapsed).
-                // Check if caret is on the start line of a rendered (not hidden) comment.
-                if (caretLine == block.StartLine && !_temporarilyHiddenComments.Contains(block.StartLine))
-                {
-                    HandleEscapeKey(block.StartLine);
-                    return;
-                }
-
-                // Also check if caret is within an already-hidden comment (raw source view)
-                if (_temporarilyHiddenComments.Contains(block.StartLine) &&
-                    caretLine >= block.StartLine && caretLine <= block.EndLine)
-                {
-                    // Already hidden, ESC shouldn't do anything for this block
-                    return;
-                }
-            }
-        }
-
-        private void OnViewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Escape && General.Instance.CommentRenderingMode == RenderingMode.Full)
-            {
-                // Check if caret is on a rendered comment line
-                var caretLine = view.Caret.Position.BufferPosition.GetContainingLine().LineNumber;
-
-                // Use cached blocks for performance
-                IReadOnlyList<XmlDocCommentBlock> blocks = XmlDocCommentParser.GetCachedCommentBlocks(view.TextBuffer);
-                if (blocks != null)
-                {
-                    // Find if caret is on the start line of a rendered comment
-                    foreach (XmlDocCommentBlock block in blocks)
-                    {
-                        // When rendered, the adornment appears on StartLine only (the block is collapsed).
-                        // Check if caret is on the start line of a rendered (not hidden) comment.
-                        if (caretLine == block.StartLine && !_temporarilyHiddenComments.Contains(block.StartLine))
-                        {
-                            HideCommentRendering(block.StartLine);
-                            e.Handled = true;
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-
-        private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
-        {
-            var currentLine = e.NewPosition.BufferPosition.GetContainingLine().LineNumber;
-
-            // If caret moved to a different line, check if we need to update rendering
-            if (_lastCaretLine.HasValue && _lastCaretLine.Value != currentLine)
-            {
-                var shouldRefresh = false;
-
-
-                // Use cached blocks for performance - avoids full document parse on every caret move
-                IReadOnlyList<XmlDocCommentBlock> blocks = XmlDocCommentParser.GetCachedCommentBlocks(view.TextBuffer);
-
-                if (blocks != null)
-                {
-                    // Check if we moved away from any temporarily hidden comments (ESC key)
-                    foreach (var hiddenLine in _temporarilyHiddenComments.ToList())
-                    {
-                        XmlDocCommentBlock block = blocks.FirstOrDefault(b => b.StartLine == hiddenLine);
-                        if (block != null)
-                        {
-                            // Check if caret is outside this comment's range
-                            if (currentLine < block.StartLine || currentLine > block.EndLine)
-                            {
-                                _temporarilyHiddenComments.Remove(hiddenLine);
-                                shouldRefresh = true;
-                            }
-                        }
-                    }
-
-                    // Check if we moved away from a recently edited comment - clear edit tracking
-                    if (_recentlyEditedLines.Count > 0)
-                    {
-                        // Find which comment block (if any) we moved away from
-                        foreach (XmlDocCommentBlock block in blocks)
-                        {
-                            var wasInComment = _lastCaretLine.Value >= block.StartLine && _lastCaretLine.Value <= block.EndLine;
-                            var nowInComment = currentLine >= block.StartLine && currentLine <= block.EndLine;
-
-                            // If we moved out of a comment, clear the edit tracking for those lines
-                            if (wasInComment && !nowInComment)
-                            {
-                                for (var line = block.StartLine; line <= block.EndLine; line++)
-                                {
-                                    _recentlyEditedLines.Remove(line);
-                                }
-                                shouldRefresh = true;
-                            }
-                        }
-                    }
-                }
-
-                if (shouldRefresh)
-                {
-                    DeferredRefreshTags();
-                }
-            }
-
-            _lastCaretLine = currentLine;
-        }
-
-
 
         private void OnRenderedStateChanged(object sender, EventArgs e)
         {
             // Clear temporary hides when toggling rendered mode
-            _temporarilyHiddenComments.Clear();
+            _visibilityManager.ClearHiddenComments();
 
             // Defer refresh to avoid layout exceptions
 #pragma warning disable VSTHRD001, VSTHRD110 // Intentional fire-and-forget for UI update
-            view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
+            _ = view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (!view.IsClosed)
                 {
@@ -408,7 +280,7 @@ namespace CommentsVS.Adornments
             RenderingMode renderingMode = General.Instance.CommentRenderingMode;
 
             // Only provide adornments in Compact or Full mode
-            if (renderingMode != RenderingMode.Compact && renderingMode != RenderingMode.Full)
+            if (renderingMode is not RenderingMode.Compact and not RenderingMode.Full)
             {
                 yield break;
             }
@@ -433,7 +305,7 @@ namespace CommentsVS.Adornments
             foreach (XmlDocCommentBlock block in commentBlocks)
             {
                 // Skip temporarily hidden comments (user pressed ESC to edit)
-                if (_temporarilyHiddenComments.Contains(block.StartLine))
+                if (_visibilityManager.IsCommentHidden(block.StartLine))
                 {
                     continue;
                 }
@@ -442,15 +314,7 @@ namespace CommentsVS.Adornments
                 // - Caret is inside the comment AND
                 // - The comment was recently modified (user is typing, not just navigating)
                 var caretInComment = caretLine >= block.StartLine && caretLine <= block.EndLine;
-                var commentWasEdited = false;
-                for (var line = block.StartLine; line <= block.EndLine; line++)
-                {
-                    if (_recentlyEditedLines.Contains(line))
-                    {
-                        commentWasEdited = true;
-                        break;
-                    }
-                }
+                var commentWasEdited = _visibilityManager.HasRecentlyEditedLines(block.StartLine, block.EndLine);
 
                 if (caretInComment && commentWasEdited)
                 {
@@ -496,14 +360,9 @@ namespace CommentsVS.Adornments
             Brush textBrush = _textBrush;
             Brush headingBrush = _headingBrush;
 
-            if (renderingMode == RenderingMode.Full)
-            {
-                return CreateFullModeAdornment(block, fontSize, fontFamily, textBrush, headingBrush);
-            }
-            else
-            {
-                return CreateCompactModeAdornment(block, fontSize, fontFamily, textBrush);
-            }
+            return renderingMode == RenderingMode.Full
+                ? CreateFullModeAdornment(block, fontSize, fontFamily, textBrush, headingBrush)
+                : CreateCompactModeAdornment(block, fontSize, fontFamily, textBrush);
         }
 
 
@@ -557,17 +416,19 @@ namespace CommentsVS.Adornments
                 isFirstSegment = false;
 
                 if (string.IsNullOrEmpty(segmentToRender.Text))
+                {
                     continue;
+                }
 
                 Inline inline = CreateInlineForSegment(segmentToRender, textBrush, _headingBrush);
                 textBlock.Inlines.Add(inline);
             }
 
-                // Double-click to switch to raw source mode for editing
-                AttachDoubleClickHandler(textBlock, block);
+            // Double-click to switch to raw source mode for editing
+            AttachDoubleClickHandler(textBlock, block);
 
-                return WrapWithLeftBorder(textBlock, _headingBrush, isMultiline: false);
-            }
+            return WrapWithLeftBorder(textBlock, _headingBrush, isMultiline: false);
+        }
 
 
 
@@ -610,7 +471,7 @@ namespace CommentsVS.Adornments
                 // Add spacing after summary if there are more sections
                 if (rendered.HasAdditionalSections)
                 {
-                    panel.Children.Add(CreateSpacer(sectionSpacing));
+                    _ = panel.Children.Add(CreateSpacer(sectionSpacing));
                 }
             }
 
@@ -622,7 +483,7 @@ namespace CommentsVS.Adornments
                 .Where(s => s.Type == CommentSectionType.TypeParam)
                 .ToList();
             var otherSections = rendered.AdditionalSections
-                .Where(s => s.Type != CommentSectionType.Param && s.Type != CommentSectionType.TypeParam)
+                .Where(s => s.Type is not CommentSectionType.Param and not CommentSectionType.TypeParam)
                 .ToList();
 
             // Calculate max name lengths for alignment
@@ -644,7 +505,7 @@ namespace CommentsVS.Adornments
                 // Add spacing after type params group if there are more sections
                 if (paramSections.Count > 0 || otherSections.Count > 0)
                 {
-                    panel.Children.Add(CreateSpacer(sectionSpacing));
+                    _ = panel.Children.Add(CreateSpacer(sectionSpacing));
                 }
             }
 
@@ -659,7 +520,7 @@ namespace CommentsVS.Adornments
                 // Add spacing after params group if there are more sections
                 if (otherSections.Count > 0)
                 {
-                    panel.Children.Add(CreateSpacer(sectionSpacing));
+                    _ = panel.Children.Add(CreateSpacer(sectionSpacing));
                 }
             }
 
@@ -672,60 +533,60 @@ namespace CommentsVS.Adornments
                 // Add spacing between other sections
                 if (i < otherSections.Count - 1)
                 {
-                    panel.Children.Add(CreateSpacer(sectionSpacing));
+                    _ = panel.Children.Add(CreateSpacer(sectionSpacing));
                 }
             }
 
             // Double-click anywhere on the panel to switch to raw source mode for editing
-                panel.Cursor = Cursors.Hand;
-                AttachDoubleClickHandler(panel, block);
+            panel.Cursor = Cursors.Hand;
+            AttachDoubleClickHandler(panel, block);
 
-                return WrapWithLeftBorder(panel, headingBrush, isMultiline: true);
-            }
+            return WrapWithLeftBorder(panel, headingBrush, isMultiline: true);
+        }
 
-            /// <summary>
-            /// Wraps the content element with a left border based on the border style setting.
-            /// </summary>
-            private static FrameworkElement WrapWithLeftBorder(FrameworkElement content, Brush borderBrush, bool isMultiline)
+        /// <summary>
+        /// Wraps the content element with a left border based on the border style setting.
+        /// </summary>
+        private static FrameworkElement WrapWithLeftBorder(FrameworkElement content, Brush borderBrush, bool isMultiline)
+        {
+            BorderStyle borderStyle = General.Instance.LeftBorder;
+
+            // Check if border should be shown based on style and comment type
+            var showBorder = borderStyle switch
             {
-                BorderStyle borderStyle = General.Instance.LeftBorder;
+                BorderStyle.Off => false,
+                BorderStyle.MultilineOnly => isMultiline,
+                BorderStyle.InlineOnly => !isMultiline,
+                BorderStyle.Always => true,
+                _ => false
+            };
 
-                // Check if border should be shown based on style and comment type
-                var showBorder = borderStyle switch
-                {
-                    BorderStyle.Off => false,
-                    BorderStyle.MultilineOnly => isMultiline,
-                    BorderStyle.InlineOnly => !isMultiline,
-                    BorderStyle.Always => true,
-                    _ => false
-                };
-
-                if (!showBorder)
-                {
-                    return content;
-                }
-
-                var container = new DockPanel
-                {
-                    Background = Brushes.Transparent
-                };
-
-                // Create the left border line
-                var leftBorder = new Border
-                {
-                    Width = 1,
-                    Opacity = 0.5,
-                    Background = borderBrush,
-                    Margin = new Thickness(0, 0, 6, 0), // 6px gap between border and content
-                    VerticalAlignment = VerticalAlignment.Stretch
-                };
-
-                DockPanel.SetDock(leftBorder, Dock.Left);
-                container.Children.Add(leftBorder);
-                container.Children.Add(content);
-
-                return container;
+            if (!showBorder)
+            {
+                return content;
             }
+
+            var container = new DockPanel
+            {
+                Background = Brushes.Transparent
+            };
+
+            // Create the left border line
+            var leftBorder = new Border
+            {
+                Width = 1,
+                Opacity = 0.5,
+                Background = borderBrush,
+                Margin = new Thickness(0, 0, 6, 0), // 6px gap between border and content
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+
+            DockPanel.SetDock(leftBorder, Dock.Left);
+            _ = container.Children.Add(leftBorder);
+            _ = container.Children.Add(content);
+
+            return container;
+        }
 
         /// <summary>
         /// Word wraps text at the specified maximum line length.
@@ -745,17 +606,17 @@ namespace CommentsVS.Adornments
             {
                 if (currentLine.Length == 0)
                 {
-                    currentLine.Append(word);
+                    _ = currentLine.Append(word);
                 }
                 else if (currentLine.Length + 1 + word.Length <= maxLineLength)
                 {
-                    currentLine.Append(' ').Append(word);
+                    _ = currentLine.Append(' ').Append(word);
                 }
                 else
                 {
                     lines.Add(currentLine.ToString());
-                    currentLine.Clear();
-                    currentLine.Append(word);
+                    _ = currentLine.Clear();
+                    _ = currentLine.Append(word);
                 }
             }
 
@@ -784,7 +645,7 @@ namespace CommentsVS.Adornments
                     // Render blank lines as spacers for consistent spacing
                     if (!isFirstLine) // Skip leading blank lines
                     {
-                        panel.Children.Add(CreateSpacer(itemSpacing * 1.5));
+                        _ = panel.Children.Add(CreateSpacer(itemSpacing * 1.5));
                     }
                     continue;
                 }
@@ -798,13 +659,13 @@ namespace CommentsVS.Adornments
 
                 // Check if line has special formatting segments
                 var hasFormattedSegments = line.Segments.Any(s =>
-                    s.Type == RenderedSegmentType.Bold ||
-                    s.Type == RenderedSegmentType.Italic ||
-                    s.Type == RenderedSegmentType.Code ||
-                    s.Type == RenderedSegmentType.Strikethrough ||
-                    s.Type == RenderedSegmentType.Link ||
-                    s.Type == RenderedSegmentType.ParamRef ||
-                    s.Type == RenderedSegmentType.TypeParamRef);
+                    s.Type is RenderedSegmentType.Bold or
+                    RenderedSegmentType.Italic or
+                    RenderedSegmentType.Code or
+                    RenderedSegmentType.Strikethrough or
+                    RenderedSegmentType.Link or
+                    RenderedSegmentType.ParamRef or
+                    RenderedSegmentType.TypeParamRef);
 
                 if (hasFormattedSegments)
                 {
@@ -841,13 +702,15 @@ namespace CommentsVS.Adornments
                         isFirstSegment = false;
 
                         if (string.IsNullOrEmpty(segmentToRender.Text))
+                        {
                             continue;
+                        }
 
                         Inline inline = CreateInlineForSegment(segmentToRender, textBrush, headingBrush);
                         textBlock.Inlines.Add(inline);
                     }
 
-                    panel.Children.Add(textBlock);
+                    _ = panel.Children.Add(textBlock);
                 }
                 else
                 {
@@ -882,7 +745,7 @@ namespace CommentsVS.Adornments
                         }
 
                         textBlock.Text = wrappedText;
-                        panel.Children.Add(textBlock);
+                        _ = panel.Children.Add(textBlock);
                     }
                 }
 
@@ -915,7 +778,7 @@ namespace CommentsVS.Adornments
                         {
                             try
                             {
-                                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                _ = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                                 {
                                     FileName = e.Uri.AbsoluteUri,
                                     UseShellExecute = true
@@ -974,17 +837,23 @@ namespace CommentsVS.Adornments
         private static Uri CreateUri(string linkTarget)
         {
             if (string.IsNullOrEmpty(linkTarget))
+            {
                 return null;
+            }
 
             // Try to create URI directly
             if (Uri.TryCreate(linkTarget, UriKind.Absolute, out Uri uri))
+            {
                 return uri;
+            }
 
             // If it looks like a URL but failed, try adding https://
             if (linkTarget.Contains(".") && !linkTarget.Contains(" "))
             {
                 if (Uri.TryCreate("https://" + linkTarget, UriKind.Absolute, out uri))
+                {
                     return uri;
+                }
             }
 
             return null;
@@ -1050,7 +919,7 @@ namespace CommentsVS.Adornments
                     textBlock.Text = lineText;
                 }
 
-                panel.Children.Add(textBlock);
+                _ = panel.Children.Add(textBlock);
             }
         }
 
@@ -1078,7 +947,7 @@ namespace CommentsVS.Adornments
                         Margin = new Thickness(0, 0, 0, itemSpacing),
                         Text = heading
                     };
-                    panel.Children.Add(headingBlock);
+                    _ = panel.Children.Add(headingBlock);
                 }
 
                 // Render each line preserving structure
@@ -1086,7 +955,7 @@ namespace CommentsVS.Adornments
                 {
                     if (line.IsBlank)
                     {
-                        panel.Children.Add(CreateSpacer(itemSpacing));
+                        _ = panel.Children.Add(CreateSpacer(itemSpacing));
                         continue;
                     }
 
@@ -1126,7 +995,7 @@ namespace CommentsVS.Adornments
                         textBlock.Inlines.Add(inline);
                     }
 
-                    panel.Children.Add(textBlock);
+                    _ = panel.Children.Add(textBlock);
                 }
             }
             else
@@ -1174,7 +1043,7 @@ namespace CommentsVS.Adornments
                         textBlock.Text = lineText;
                     }
 
-                    panel.Children.Add(textBlock);
+                    _ = panel.Children.Add(textBlock);
                 }
             }
         }
@@ -1216,7 +1085,7 @@ namespace CommentsVS.Adornments
                     TextWrapping = TextWrapping.NoWrap
                 };
                 textBlock.SetResourceReference(TextBlock.ForegroundProperty, Microsoft.VisualStudio.PlatformUI.EnvironmentColors.ToolTipTextBrushKey);
-                panel.Children.Add(textBlock);
+                _ = panel.Children.Add(textBlock);
             }
 
             var tooltip = new ToolTip
@@ -1265,21 +1134,21 @@ namespace CommentsVS.Adornments
 
             // Defer caret positioning to ensure the adornment is removed first
 #pragma warning disable VSTHRD001, VSTHRD110 // Intentional fire-and-forget for UI update
-            view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                if (!view.IsClosed)
-                {
-                    view.Caret.MoveTo(caretPosition);
-                    view.ViewScroller.EnsureSpanVisible(new SnapshotSpan(caretPosition, 0));
-                }
-            }), System.Windows.Threading.DispatcherPriority.Background);
+            _ = view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            if (!view.IsClosed)
+                            {
+                                _ = view.Caret.MoveTo(caretPosition);
+                                view.ViewScroller.EnsureSpanVisible(new SnapshotSpan(caretPosition, 0));
+                            }
+                        }), System.Windows.Threading.DispatcherPriority.Background);
 #pragma warning restore VSTHRD001, VSTHRD110
         }
 
 
         private void HideCommentRendering(int startLine)
         {
-            _temporarilyHiddenComments.Add(startLine);
+            _visibilityManager.HideComment(startLine);
             RefreshTags();
         }
 

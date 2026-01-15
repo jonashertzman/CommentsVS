@@ -45,9 +45,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Adornments\CaretTracker.cs" />
+    <Compile Include="Adornments\CommentVisibilityManager.cs" />
     <Compile Include="Adornments\IntraTextAdornmentTagger.cs" />
     <Compile Include="Adornments\RenderedCommentAdornmentManager.cs" />
     <Compile Include="Adornments\RenderedCommentIntraTextTagger.cs" />
+    <Compile Include="Adornments\TaggerKeyboardHandler.cs" />
     <Compile Include="Classification\CommentTagClassificationTypes.cs" />
     <Compile Include="Classification\CommentTagClassifier.cs" />
     <Compile Include="Classification\CommentTagClassifierProvider.cs" />
@@ -107,7 +110,9 @@
     <Compile Include="Tagging\XmlDocCommentOutliningTagger.cs" />
     <Compile Include="ToolWindows\AnchorCacheSerializer.cs" />
     <Compile Include="ToolWindows\AnchorItem.cs" />
+    <Compile Include="ToolWindows\AnchorNavigationService.cs" />
     <Compile Include="ToolWindows\AnchorScope.cs" />
+    <Compile Include="ToolWindows\AnchorScopeFilter.cs" />
     <Compile Include="ToolWindows\AnchorService.cs" />
     <Compile Include="ToolWindows\AnchorType.cs" />
     <Compile Include="ToolWindows\CodeAnchorsControl.xaml.cs">
@@ -116,8 +121,10 @@
     <Compile Include="ToolWindows\CodeAnchorsSearchTask.cs" />
     <Compile Include="ToolWindows\CodeAnchorsToolWindow.cs" />
     <Compile Include="ToolWindows\CodeAnchorsToolWindowPane.cs" />
+    <Compile Include="ToolWindows\DocumentEventCoordinator.cs" />
     <Compile Include="ToolWindows\SolutionAnchorCache.cs" />
     <Compile Include="ToolWindows\SolutionAnchorScanner.cs" />
+    <Compile Include="ToolWindows\SolutionEventCoordinator.cs" />
     <Compile Include="VSCommandTable.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
