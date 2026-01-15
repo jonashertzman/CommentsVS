@@ -142,26 +142,21 @@ namespace CommentsVS.QuickInfo
                            "Creates a clickable link to another file, line number, or named anchor. " +
                            "Ctrl+Click to navigate to the target location."),
                 _ => (null, null),
-            };
-        }
-
-        public void Dispose()
-        {
-        }
-
-        private async Task<GitRepositoryInfo> GetRepoInfoAsync()
-        {
-            if (textBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
-            {
-                return await GitRepositoryService.GetRepositoryInfoAsync(document.FilePath).ConfigureAwait(false);
+                };
             }
 
-            return null;
-        }
+            public void Dispose()
+            {
+            }
 
-        private static ContainerElement CreateQuickInfoContent(string tag, string title, string description, IReadOnlyList<CommentTagMetadataItem> metadata, GitRepositoryInfo repoInfo)
-        {
-            const int MaxLineLength = 60;
+            private async Task<GitRepositoryInfo> GetRepoInfoAsync()
+            {
+                return await TextBufferHelper.GetRepositoryInfoAsync(textBuffer).ConfigureAwait(false);
+            }
+
+            private static ContainerElement CreateQuickInfoContent(string tag, string title, string description, IReadOnlyList<CommentTagMetadataItem> metadata, GitRepositoryInfo repoInfo)
+            {
+                const int MaxLineLength = 60;
 
             var elements = new List<object>
             {

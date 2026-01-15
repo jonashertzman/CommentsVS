@@ -3,13 +3,11 @@ using System.ComponentModel.Composition;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using CommentsVS.Services;
 using CommentsVS.ToolWindows;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Utilities;
 
 namespace CommentsVS.Handlers
@@ -52,35 +50,22 @@ namespace CommentsVS.Handlers
             }
 
             // Get the position under the mouse
-            SnapshotPoint? position = GetMousePosition(e);
-            if (position == null)
-            {
-                return;
+                SnapshotPoint? position = MousePositionHelper.GetMousePosition(textView, e);
+                if (position == null)
+                {
+                    return;
+                }
+
+                // Check if we clicked on a LINK reference
+                LinkAnchorInfo link = GetLinkAtPosition(position.Value);
+                if (link != null)
+                {
+                    NavigateToLink(link);
+                    e.Handled = true;
+                }
             }
 
-            // Check if we clicked on a LINK reference
-            LinkAnchorInfo link = GetLinkAtPosition(position.Value);
-            if (link != null)
-            {
-                NavigateToLink(link);
-                e.Handled = true;
-            }
-        }
-
-        private SnapshotPoint? GetMousePosition(MouseButtonEventArgs e)
-        {
-            Point point = e.GetPosition(textView.VisualElement);
-            ITextViewLine line = textView.TextViewLines.GetTextViewLineContainingYCoordinate(point.Y + textView.ViewportTop);
-
-            if (line == null)
-            {
-                return null;
-            }
-
-            return line.GetBufferPositionFromXCoordinate(point.X + textView.ViewportLeft);
-        }
-
-        private LinkAnchorInfo GetLinkAtPosition(SnapshotPoint position)
+            private LinkAnchorInfo GetLinkAtPosition(SnapshotPoint position)
         {
             ITextSnapshotLine line = position.GetContainingLine();
             var lineText = line.GetText();

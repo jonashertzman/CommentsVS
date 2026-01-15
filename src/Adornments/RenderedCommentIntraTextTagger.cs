@@ -588,7 +588,7 @@ namespace CommentsVS.Adornments
                 Width = 1,
                 Opacity = 0.5,
                 Background = borderBrush,
-                Margin = new Thickness(0, 0, 6, 0), // 6px gap between border and content
+                Margin = new Thickness(3, 0, 5, 0), // 1px offset to align with structure guides, 6px gap to content
                 VerticalAlignment = VerticalAlignment.Stretch
             };
 
@@ -907,11 +907,10 @@ namespace CommentsVS.Adornments
 
                 if (i == 0)
                 {
-                    // First line has name (bold, padded for alignment), and description
+                    // First line has name (padded for alignment), and description
                     textBlock.Inlines.Add(new Run(paddedName)
                     {
-                        Foreground = textBrush,
-                        FontWeight = FontWeights.Bold
+                        Foreground = textBrush
                     });
                     // Get the content part after the prefix
                     var contentStart = prefix.Length;

@@ -112,32 +112,27 @@ namespace CommentsVS.QuickInfo
             }
 
             return null;
-        }
+                }
 
-        private static string GetProviderName(GitHostingProvider provider)
-        {
-            return provider switch
-            {
-                GitHostingProvider.GitHub => "GitHub",
-                GitHostingProvider.GitLab => "GitLab",
-                GitHostingProvider.Bitbucket => "Bitbucket",
-                GitHostingProvider.AzureDevOps => "Azure DevOps Work Item",
-                _ => "Issue",
-            };
-        }
+                private static string GetProviderName(GitHostingProvider provider)
+                {
+                    return provider switch
+                    {
+                        GitHostingProvider.GitHub => "GitHub",
+                        GitHostingProvider.GitLab => "GitLab",
+                        GitHostingProvider.Bitbucket => "Bitbucket",
+                        GitHostingProvider.AzureDevOps => "Azure DevOps Work Item",
+                        _ => "Issue",
+                    };
+                }
 
-        private async Task<GitRepositoryInfo> GetRepoInfoAsync()
-        {
-            if (textBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
-            {
-                return await GitRepositoryService.GetRepositoryInfoAsync(document.FilePath).ConfigureAwait(false);
+                private async Task<GitRepositoryInfo> GetRepoInfoAsync()
+                {
+                    return await TextBufferHelper.GetRepositoryInfoAsync(textBuffer).ConfigureAwait(false);
+                }
+
+                public void Dispose()
+                {
+                }
             }
-
-                return null;
-            }
-
-            public void Dispose()
-        {
         }
-    }
-}

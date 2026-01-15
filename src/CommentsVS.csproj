@@ -95,6 +95,8 @@
     <Compile Include="Services\GitRepositoryService.cs" />
     <Compile Include="Services\LanguageCommentStyles.cs" />
     <Compile Include="Services\LinkAnchorParser.cs" />
+    <Compile Include="Services\MousePositionHelper.cs" />
+    <Compile Include="Services\TextBufferHelper.cs" />
     <Compile Include="Services\XmlDocCommentCache.cs" />
     <Compile Include="Services\XmlDocCommentParser.cs" />
     <Compile Include="Services\XmlDocCommentRenderer.cs" />

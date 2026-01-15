@@ -2,13 +2,11 @@ using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using CommentsVS.Options;
 using CommentsVS.Services;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Utilities;
 
 namespace CommentsVS.Handlers
@@ -41,10 +39,6 @@ namespace CommentsVS.Handlers
             @"#(?<number>\d+)\b",
             RegexOptions.Compiled);
 
-        private static readonly Regex _commentLineRegex = new(
-            @"^\s*(//|/\*|\*|')",
-            RegexOptions.Compiled);
-
         public override void PreprocessMouseLeftButtonUp(MouseButtonEventArgs e)
         {
             if (!General.Instance.EnableIssueLinks)
@@ -69,50 +63,37 @@ namespace CommentsVS.Handlers
                 return;
             }
 
-            // Get the position under the mouse
-            SnapshotPoint? position = GetMousePosition(e);
-            if (position == null)
-            {
-                return;
-            }
-
-            // Check if we clicked on an issue reference
-            var url = GetIssueUrlAtPosition(position.Value);
-            if (!string.IsNullOrEmpty(url))
-            {
-                // Open the URL in the default browser
-                try
+                // Get the position under the mouse
+                SnapshotPoint? position = MousePositionHelper.GetMousePosition(textView, e);
+                if (position == null)
                 {
-                    Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-                    e.Handled = true;
+                    return;
                 }
-                catch (Exception ex)
+
+                // Check if we clicked on an issue reference
+                var url = GetIssueUrlAtPosition(position.Value);
+                if (!string.IsNullOrEmpty(url))
                 {
-                    ex.Log();
+                    // Open the URL in the default browser
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                        e.Handled = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        ex.Log();
+                    }
                 }
             }
-        }
 
-        private SnapshotPoint? GetMousePosition(MouseButtonEventArgs e)
-        {
-            Point point = e.GetPosition(textView.VisualElement);
-            ITextViewLine line = textView.TextViewLines.GetTextViewLineContainingYCoordinate(point.Y + textView.ViewportTop);
-
-            if (line == null)
-            {
-                return null;
-            }
-
-            return line.GetBufferPositionFromXCoordinate(point.X + textView.ViewportLeft);
-        }
-
-        private string GetIssueUrlAtPosition(SnapshotPoint position)
+            private string GetIssueUrlAtPosition(SnapshotPoint position)
         {
             ITextSnapshotLine line = position.GetContainingLine();
             var lineText = line.GetText();
 
             // Check if this line is a comment
-            if (!_commentLineRegex.IsMatch(lineText))
+            if (!LanguageCommentStyle.IsCommentLine(lineText))
             {
                 return null;
             }
