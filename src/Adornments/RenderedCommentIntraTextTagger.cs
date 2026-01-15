@@ -164,9 +164,20 @@ namespace CommentsVS.Adornments
                 _keyboardHandler?.Dispose();
 
                 // Unsubscribe from helper class events
-                _visibilityManager?.VisibilityChanged -= OnVisibilityChanged;
-                _caretTracker?.RefreshRequested -= OnRefreshRequested;
-                _keyboardHandler?.RefreshRequested -= OnRefreshRequested;
+                if (_visibilityManager != null)
+                {
+                    _visibilityManager.VisibilityChanged -= OnVisibilityChanged;
+                }
+
+                if (_caretTracker != null)
+                {
+                    _caretTracker.RefreshRequested -= OnRefreshRequested;
+                }
+
+                if (_keyboardHandler != null)
+                {
+                    _keyboardHandler.RefreshRequested -= OnRefreshRequested;
+                }
 
                 SetRenderingModeHelper.RenderedCommentsStateChanged -= OnRenderedStateChanged;
                 view.TextBuffer.Changed -= OnBufferChanged;
