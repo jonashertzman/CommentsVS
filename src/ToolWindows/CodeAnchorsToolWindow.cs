@@ -124,11 +124,21 @@ namespace CommentsVS.ToolWindows
             _solutionEventCoordinator.Subscribe();
             _documentEventCoordinator.Subscribe();
 
-            // Start scanning if enabled (runs on background thread)
-            if (options.ScanSolutionOnLoad)
+            // Check if a solution is already open (window opened after solution loaded)
+            Solution currentSolution = await VS.Solutions.GetCurrentSolutionAsync();
+            var solutionAlreadyOpen = currentSolution != null && !string.IsNullOrEmpty(currentSolution.FullPath);
+
+            if (solutionAlreadyOpen)
             {
-                // Fire and forget - don't block tool window creation
-                ScanSolutionAsync().FireAndForget();
+                // Solution is already open - try to load cache and/or scan
+                // This handles the case where the tool window is opened after a solution is already loaded
+                InitializeForOpenSolutionAsync().FireAndForget();
+            }
+            else
+            {
+                // No solution - check if there are any open documents (misc files)
+                // and scan them for anchors
+                ScanOpenDocumentsAsync().FireAndForget();
             }
 
             return _control;
@@ -148,6 +158,73 @@ namespace CommentsVS.ToolWindows
         private void OnDocumentScanned(object sender, System.EventArgs e)
         {
             RefreshAnchorsFromCache();
+        }
+
+        /// <summary>
+        /// Initializes the tool window when a solution is already open.
+        /// Tries to load cache first, then scans if needed.
+        /// </summary>
+        private async Task InitializeForOpenSolutionAsync()
+        {
+            // Try to load cache from disk first
+            var solutionDir = await _solutionEventCoordinator.GetSolutionDirectoryAsync();
+            var cacheLoaded = false;
+
+            if (!string.IsNullOrEmpty(solutionDir))
+            {
+                cacheLoaded = _cache.LoadFromDisk(solutionDir);
+                if (cacheLoaded)
+                {
+                    // Refresh UI with loaded cache
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    RefreshAnchorsFromCache();
+                }
+            }
+
+            // If cache not loaded or scan on load is enabled, scan the solution
+            General options = await General.GetLiveInstanceAsync();
+            if (!cacheLoaded || options.ScanSolutionOnLoad)
+            {
+                await _scanner.ScanSolutionAsync();
+            }
+        }
+
+        /// <summary>
+        /// Scans all currently open documents for anchors (used when no solution is loaded).
+        /// </summary>
+        private async Task ScanOpenDocumentsAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            try
+            {
+                // Use DTE to get all open documents
+                EnvDTE.DTE dte = await VS.GetServiceAsync<EnvDTE.DTE, EnvDTE.DTE>();
+                if (dte?.Documents == null || dte.Documents.Count == 0)
+                {
+                    return;
+                }
+
+                foreach (EnvDTE.Document doc in dte.Documents)
+                {
+                    var filePath = doc?.FullName;
+                    if (string.IsNullOrEmpty(filePath))
+                    {
+                        continue;
+                    }
+
+                    // Scan the file and add to cache
+                    IReadOnlyList<AnchorItem> anchors = await _scanner.ScanFileAsync(filePath, projectName: null);
+                    _cache.AddOrUpdateFile(filePath, anchors);
+                }
+
+                // Refresh UI with scanned anchors
+                RefreshAnchorsFromCache();
+            }
+            catch
+            {
+                // Ignore errors getting open documents
+            }
         }
 
         /// <summary>
