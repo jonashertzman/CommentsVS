@@ -172,11 +172,14 @@ namespace CommentsVS.Services
         {
             var pattern = _cachedAnchorKeywordsPattern;
 
+            // Anchor must be the first word after comment prefix (and optional whitespace/asterisks)
+            // This prevents matching "bug" in "straightforward bug fix"
             _cachedAnchorClassificationRegex = new Regex(
-                @"(?<=//.*)(?<tag>\b(?:" + pattern + @")\b:?)|" +
-                @"(?<=/\*.*)(?<tag>\b(?:" + pattern + @")\b:?)|" +
-                @"(?<='.*)(?<tag>\b(?:" + pattern + @")\b:?)",
-                RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                @"(?<=//\s*)(?<tag>\b(?:" + pattern + @")\b:?)|" +
+                @"(?<=/\*[\s\*]*)(?<tag>\b(?:" + pattern + @")\b:?)|" +
+                @"(?<='\s*)(?<tag>\b(?:" + pattern + @")\b:?)|" +
+                @"(?<=^\s*\*\s*)(?<tag>\b(?:" + pattern + @")\b:?)",
+                RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.Multiline);
 
             _cachedAnchorWithMetadataRegex = new Regex(
                 @"\b(?:" + pattern + @")\b(?<metadata>\s*(?:\([^)]*\)|\[[^\]]*\]))",
