@@ -33,6 +33,15 @@
           <LocCanonicalName>.CommentsVS.ExportSplitButtonMenu</LocCanonicalName>
         </Strings>
       </Menu>
+      <!-- Remove Comments Submenu -->
+      <Menu guid="CommentsVS" id="RemoveCommentsSubMenu" priority="0x0100" type="Menu">
+        <Parent guid="CommentsVS" id="RemoveCommentsSubMenuGroup"/>
+        <Strings>
+          <ButtonText>Remove Comments</ButtonText>
+          <CommandName>Remove Comments</CommandName>
+          <LocCanonicalName>.CommentsVS.RemoveComments</LocCanonicalName>
+        </Strings>
+      </Menu>
     </Menus>
 
     <Groups>
@@ -57,6 +66,10 @@
       </Group>
       <!-- Group for settings command inside submenu -->
       <Group guid="CommentsVS" id="CommentsSettingsGroup" priority="0x0300">
+        <Parent guid="CommentsVS" id="CommentsSubMenu"/>
+      </Group>
+      <!-- Group containing Remove Comments submenu inside CommentsSubMenu -->
+      <Group guid="CommentsVS" id="RemoveCommentsSubMenuGroup" priority="0x0120">
         <Parent guid="CommentsVS" id="CommentsSubMenu"/>
       </Group>
       <!-- Code Anchors scope filter group -->
@@ -86,6 +99,22 @@
       <!-- Export to file group (separator) -->
       <Group guid="CommentsVS" id="ExportToFileGroup" priority="0x0200">
         <Parent guid="CommentsVS" id="ExportSplitButtonMenu"/>
+      </Group>
+      <!-- Remove Comments - All group -->
+      <Group guid="CommentsVS" id="RemoveCommentsAllGroup" priority="0x0100">
+        <Parent guid="CommentsVS" id="RemoveCommentsSubMenu"/>
+      </Group>
+      <!-- Remove Comments - XML Doc group -->
+      <Group guid="CommentsVS" id="RemoveCommentsXmlDocGroup" priority="0x0200">
+        <Parent guid="CommentsVS" id="RemoveCommentsSubMenu"/>
+      </Group>
+      <!-- Remove Comments - Task group -->
+      <Group guid="CommentsVS" id="RemoveCommentsTaskGroup" priority="0x0300">
+        <Parent guid="CommentsVS" id="RemoveCommentsSubMenu"/>
+      </Group>
+      <!-- Remove Comments - Regions group -->
+      <Group guid="CommentsVS" id="RemoveCommentsRegionsGroup" priority="0x0400">
+        <Parent guid="CommentsVS" id="RemoveCommentsSubMenu"/>
       </Group>
     </Groups>
 
@@ -188,6 +217,7 @@
         <Parent guid="CommentsVS" id="CommentsAnchorNavGroup"/>
         <Icon guid="ImageCatalogGuid" id="NextBookmark" />
         <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
           <ButtonText>Next Anchor</ButtonText>
           <CanonicalName>.CommentsVS.NextAnchor</CanonicalName>
@@ -199,6 +229,7 @@
         <Parent guid="CommentsVS" id="CommentsAnchorNavGroup"/>
         <Icon guid="ImageCatalogGuid" id="PreviousBookmark" />
         <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
           <ButtonText>Previous Anchor</ButtonText>
           <CanonicalName>.CommentsVS.PreviousAnchor</CanonicalName>
@@ -298,6 +329,90 @@
           <LocCanonicalName>.CommentsVS.ToolbarOpenSettings</LocCanonicalName>
         </Strings>
       </Button>
+      <!-- Remove All Comments -->
+      <Button guid="CommentsVS" id="RemoveAllComments" priority="0x0100" type="Button">
+        <Parent guid="CommentsVS" id="RemoveCommentsAllGroup"/>
+        <Icon guid="ImageCatalogGuid" id="Uncomment" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Remove All</ButtonText>
+          <CanonicalName>.CommentsVS.RemoveAllComments</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RemoveAllComments</LocCanonicalName>
+        </Strings>
+      </Button>
+      <!-- Remove All Selected Comments -->
+      <Button guid="CommentsVS" id="RemoveAllSelectedComments" priority="0x0200" type="Button">
+        <Parent guid="CommentsVS" id="RemoveCommentsAllGroup"/>
+        <Icon guid="ImageCatalogGuid" id="FormatSelection" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Remove All in Selection</ButtonText>
+          <CanonicalName>.CommentsVS.RemoveAllSelectedComments</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RemoveAllSelectedComments</LocCanonicalName>
+        </Strings>
+      </Button>
+      <!-- Remove XML Doc Comments -->
+      <Button guid="CommentsVS" id="RemoveXmlDocComments" priority="0x0100" type="Button">
+        <Parent guid="CommentsVS" id="RemoveCommentsXmlDocGroup"/>
+        <Icon guid="ImageCatalogGuid" id="ClearDictionary" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Remove XML Docs</ButtonText>
+          <CanonicalName>.CommentsVS.RemoveXmlDocComments</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RemoveXmlDocComments</LocCanonicalName>
+        </Strings>
+      </Button>
+      <!-- Remove All Except XML Doc Comments -->
+      <Button guid="CommentsVS" id="RemoveAllExceptXmlDocComments" priority="0x0200" type="Button">
+        <Parent guid="CommentsVS" id="RemoveCommentsXmlDocGroup"/>
+        <Icon guid="ImageCatalogGuid" id="Dictionary" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Remove All Except XML Docs</ButtonText>
+          <CanonicalName>.CommentsVS.RemoveAllExceptXmlDocComments</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RemoveAllExceptXmlDocComments</LocCanonicalName>
+        </Strings>
+      </Button>
+      <!-- Remove Task Comments -->
+      <Button guid="CommentsVS" id="RemoveTaskComments" priority="0x0100" type="Button">
+        <Parent guid="CommentsVS" id="RemoveCommentsTaskGroup"/>
+        <Icon guid="ImageCatalogGuid" id="DeleteTaskList" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Remove Tasks</ButtonText>
+          <CanonicalName>.CommentsVS.RemoveTaskComments</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RemoveTaskComments</LocCanonicalName>
+        </Strings>
+      </Button>
+      <!-- Remove All Except Task Comments -->
+      <Button guid="CommentsVS" id="RemoveAllExceptTaskComments" priority="0x0200" type="Button">
+        <Parent guid="CommentsVS" id="RemoveCommentsTaskGroup"/>
+        <Icon guid="ImageCatalogGuid" id="TaskList" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Remove All Except Tasks</ButtonText>
+          <CanonicalName>.CommentsVS.RemoveAllExceptTaskComments</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RemoveAllExceptTaskComments</LocCanonicalName>
+        </Strings>
+      </Button>
+      <!-- Remove Regions -->
+      <Button guid="CommentsVS" id="RemoveRegions" priority="0x0100" type="Button">
+        <Parent guid="CommentsVS" id="RemoveCommentsRegionsGroup"/>
+        <Icon guid="ImageCatalogGuid" id="HideCommentGroup" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Remove #Regions</ButtonText>
+          <CanonicalName>.CommentsVS.RemoveRegions</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RemoveRegions</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -308,10 +423,28 @@
     </CommandPlacement>
   </CommandPlacements>
 
+  <VisibilityConstraints>
+    <VisibilityItem guid="CommentsVS" id="ToggleCommentVisibility" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="ToggleCollapseByDefault" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="SetRenderingModeOff" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="SetRenderingModeCompact" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="SetRenderingModeFull" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="NextAnchor" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="PreviousAnchor" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="RemoveAllComments" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="RemoveAllSelectedComments" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="RemoveXmlDocComments" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="RemoveAllExceptXmlDocComments" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="RemoveTaskComments" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="RemoveAllExceptTaskComments" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="RemoveRegions" context="GUID_TextEditorFactory" />
+  </VisibilityConstraints>
+
   <KeyBindings>
     <KeyBinding guid="CommentsVS" id="ToggleCommentVisibility" editor="guidVSStd97" key1="M" mod1="Control" key2="C" mod2="Control" />
     <KeyBinding guid="CommentsVS" id="NextAnchor" editor="GUID_TextEditorFactory" key1="VK_NEXT" mod1="Alt" />
     <KeyBinding guid="CommentsVS" id="PreviousAnchor" editor="GUID_TextEditorFactory" key1="VK_PRIOR" mod1="Alt" />
+    <KeyBinding guid="CommentsVS" id="RemoveAllComments" editor="guidVSStd97" key1="K" mod1="Control" key2="Q" mod2="Control" />
   </KeyBindings>
 
   <Symbols>
@@ -353,6 +486,21 @@
       <IDSymbol name="ExportToFile" value="0x0218" />
       <IDSymbol name="CodeAnchorsSettingsGroup" value="0x0219" />
       <IDSymbol name="ToolbarOpenSettings" value="0x021A" />
+      <!-- Remove Comments submenu and groups -->
+      <IDSymbol name="RemoveCommentsSubMenuGroup" value="0x021B" />
+      <IDSymbol name="RemoveCommentsSubMenu" value="0x021C" />
+      <IDSymbol name="RemoveCommentsAllGroup" value="0x021D" />
+      <IDSymbol name="RemoveCommentsXmlDocGroup" value="0x021E" />
+      <IDSymbol name="RemoveCommentsTaskGroup" value="0x021F" />
+      <IDSymbol name="RemoveCommentsRegionsGroup" value="0x0227" />
+      <!-- Remove Comments commands -->
+      <IDSymbol name="RemoveAllComments" value="0x0220" />
+      <IDSymbol name="RemoveAllSelectedComments" value="0x0221" />
+      <IDSymbol name="RemoveXmlDocComments" value="0x0222" />
+      <IDSymbol name="RemoveAllExceptXmlDocComments" value="0x0223" />
+      <IDSymbol name="RemoveTaskComments" value="0x0224" />
+      <IDSymbol name="RemoveAllExceptTaskComments" value="0x0225" />
+      <IDSymbol name="RemoveRegions" value="0x0226" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

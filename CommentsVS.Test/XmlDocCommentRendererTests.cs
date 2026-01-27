@@ -347,7 +347,7 @@ public sealed class XmlDocCommentRendererTests
 
         List<RenderedSegment> segments = XmlDocCommentRenderer.ProcessMarkdownInText("See #10 and #20", repoInfo);
 
-        List<RenderedSegment> issueSegments = segments.Where(s => s.Type == RenderedSegmentType.IssueReference).ToList();
+        List<RenderedSegment> issueSegments = [.. segments.Where(s => s.Type == RenderedSegmentType.IssueReference)];
         Assert.HasCount(2, issueSegments, "Should have two IssueReference segments");
         Assert.AreEqual("#10", issueSegments[0].Text);
         Assert.AreEqual("#20", issueSegments[1].Text);

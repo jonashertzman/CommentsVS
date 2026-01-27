@@ -27,6 +27,7 @@ or get the [CI build][vsixgallery].
 - **Solution-Wide Code Anchors** — Browse all TODOs, HACKs, and notes across your entire solution
 - **Clickable Issues** — `#123` links directly to GitHub/GitLab/Azure DevOps issues
 - **Link Anchors** — Navigate to other files, lines, or named anchors with `LINK:` syntax
+- **Comment Remover** — Bulk remove comments with smart preservation options
 - **Theme-aware** — Works with light and dark Visual Studio themes
 
 **Supports:** C#, VB.NET, F#, C++, TypeScript, JavaScript, Razor, SQL, and PowerShell
@@ -252,7 +253,7 @@ Open it via **View > Other Windows > Code Anchors**.
 
 ![Code Anchors](art/code-anchors.png)
 
-#### Features
+#### Feature list
 
 - **Solution-wide scanning** — Finds anchors in all files across your entire solution, not just open documents
 - **Background indexing** — Scans files on a background thread without blocking the UI
@@ -373,6 +374,26 @@ Link anchors work with the existing ANCHOR tags to create a navigation system wi
 // In another file:
 // See input validation: LINK: Services/UserService.cs#validate-input
 ```
+
+### Comment Remover
+
+**Quickly clean up comments from your code.** The Comment Remover provides several commands to remove comments in bulk, with smart options to preserve important ones.
+
+Access these commands via **Edit > Comments** menu or the right-click context menu:
+
+| Command | Description |
+|---------|-------------|
+| **Remove All Comments** | Removes all comments from the current document |
+| **Remove All Comments in Selection** | Removes comments within the selected text only |
+| **Remove All Except XML Doc Comments** | Removes regular comments but preserves `///` documentation |
+| **Remove All Except Task Comments** | Removes comments but preserves TODO, HACK, NOTE, BUG, etc. |
+| **Remove XML Doc Comments Only** | Removes only `///` documentation comments |
+| **Remove Task Comments Only** | Removes only TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW, and custom tag comments |
+| **Remove Regions** | Removes all `#region` and `#endregion` directives |
+
+**Smart cleanup:** When removing comments, entire lines are deleted if they become empty (just whitespace or orphaned comment delimiters like `<!--` or `-->`). This keeps your code clean without leaving behind empty lines.
+
+**Task comment detection:** The "Except Task Comments" option recognizes all built-in anchor tags (TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW) plus any custom tags you've defined in settings.
 
 ## Options
 

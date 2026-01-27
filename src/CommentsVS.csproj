@@ -64,6 +64,13 @@
     <Compile Include="Commands\OpenSettingsCommand.cs" />
     <Compile Include="Commands\PreviousAnchorCommand.cs" />
     <Compile Include="Commands\RefreshAnchorsCommand.cs" />
+    <Compile Include="Commands\RemoveAllCommentsCommand.cs" />
+    <Compile Include="Commands\RemoveAllExceptTaskCommentsCommand.cs" />
+    <Compile Include="Commands\RemoveAllExceptXmlDocCommentsCommand.cs" />
+    <Compile Include="Commands\RemoveAllSelectedCommentsCommand.cs" />
+    <Compile Include="Commands\RemoveRegionsCommand.cs" />
+    <Compile Include="Commands\RemoveTaskCommentsCommand.cs" />
+    <Compile Include="Commands\RemoveXmlDocCommentsCommand.cs" />
     <Compile Include="Commands\ScopeFilterComboCommand.cs" />
     <Compile Include="Commands\SetRenderingModeCommand.cs" />
     <Compile Include="Commands\ShowCodeAnchorsCommand.cs" />
@@ -89,6 +96,7 @@
     <Compile Include="Services\AnchorExporter.cs" />
     <Compile Include="Services\CommentPatterns.cs" />
     <Compile Include="Services\CommentReflowEngine.cs" />
+    <Compile Include="Services\CommentRemovalService.cs" />
     <Compile Include="Services\CommentSpanHelper.cs" />
     <Compile Include="Services\Constants.cs" />
     <Compile Include="Services\ContentTypes.cs" />
