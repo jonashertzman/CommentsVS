@@ -23,13 +23,7 @@ Applies to extensions using `Community.VisualStudio.Toolkit` with `ToolkitPackag
 
 ## Updating These Instructions
 
-When you discover a pattern or gotcha that:
-
-- Took multiple attempts to get right
-- Would have saved significant time if documented
-- Is non-obvious but important for this codebase
-
-→ **Suggest adding it** to the Common Gotchas table or relevant section. Keep entries concise (one line if possible).
+When corrected or a non-obvious pattern emerges, suggest adding to Common Gotchas or Core Patterns. Keep entries to one line if possible.
 
 ## Critical Rules
 
@@ -49,7 +43,8 @@ await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 |---------|------------|---------|
 | Package | `ToolkitPackage` | Call `RegisterCommandsAsync()` in `InitializeAsync` |
 | Commands | `BaseCommand<T>` | Use `[Command(PackageIds.X)]` attribute |
-| Options | `BaseOptionModel<T>` | Access via `General.Instance.PropertyName` |
+| Options (sync) | `BaseOptionModel<T>` | `General.Instance.Property` in MEF/sync code |
+| Options (async) | `BaseOptionModel<T>` | `await General.GetLiveInstanceAsync()` in async methods |
 | MEF Taggers | `IViewTaggerProvider` | Export with `[ContentType]`, `[TagType]` |
 
 ### VS Helpers (use instead of raw SDK)

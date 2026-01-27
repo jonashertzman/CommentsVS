@@ -28,16 +28,21 @@ namespace CommentsVS
     [ProvideToolWindowVisibility(typeof(CodeAnchorsToolWindowPane), VSConstants.UICONTEXT.EmptySolution_string)]
     public sealed class CommentsVSPackage : ToolkitPackage
     {
+        private RatingPrompt _ratingPrompt;
+
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
             await this.RegisterCommandsAsync();
             this.RegisterToolWindows();
             await FormatDocumentHandler.RegisterAsync();
 
+            _ratingPrompt = new RatingPrompt("MadsKristensen.CommentsVS", Vsix.Name, await General.GetLiveInstanceAsync(), 10);
+
             // Switch to main thread to register combo box command
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-            // Subscribe to solution close events to clear caches
+            // Subscribe to solution events to track usage and clear caches
+            VS.Events.SolutionEvents.OnAfterOpenSolution += OnSolutionOpened;
             VS.Events.SolutionEvents.OnAfterCloseSolution += OnSolutionClosed;
 
             // Register the scope filter combo box command
@@ -46,6 +51,17 @@ namespace CommentsVS
                 ScopeFilterComboCommand.Initialize(this, commandService);
                 TypeFilterComboCommand.Initialize(this, commandService);
             }
+
+            // Register usage if solution is already open
+            if (await VS.Solutions.IsOpenAsync())
+            {
+                _ratingPrompt.RegisterSuccessfulUsage();
+            }
+        }
+
+        private void OnSolutionOpened(Solution solution = null)
+        {
+            _ratingPrompt.RegisterSuccessfulUsage();
         }
 
         private void OnSolutionClosed()
@@ -59,7 +75,8 @@ namespace CommentsVS
         {
             if (disposing)
             {
-                // Unsubscribe from solution close events
+                // Unsubscribe from solution events
+                VS.Events.SolutionEvents.OnAfterOpenSolution -= OnSolutionOpened;
                 VS.Events.SolutionEvents.OnAfterCloseSolution -= OnSolutionClosed;
             }
 

@@ -115,7 +115,7 @@ namespace CommentsVS.Options
     /// <summary>
     /// Settings model for XML Doc Comment formatting options.
     /// </summary>
-    public class General : BaseOptionModel<General>
+    public class General : BaseOptionModel<General>, IRatingConfig
     {
         private HashSet<string> _cachedExtensions;
         private string _lastExtensionsValue;
@@ -339,5 +339,11 @@ namespace CommentsVS.Options
                 UseCompactStyleForShortSummaries,
                 PreserveBlankLines);
         }
+
+        /// <summary>
+        /// Tracks the number of successful usages for rating prompts.
+        /// </summary>
+        [Browsable(false)]
+        public int RatingRequests { get; set; }
     }
 }
