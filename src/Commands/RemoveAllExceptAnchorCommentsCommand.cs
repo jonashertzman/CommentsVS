@@ -7,10 +7,10 @@ using Microsoft.VisualStudio.Text.Editor;
 namespace CommentsVS.Commands
 {
     /// <summary>
-    /// Command to remove all comments except task comments (TODO, HACK, etc.) from the current document.
+    /// Command to remove all comments except anchor comments (TODO, HACK, etc.) from the current document.
     /// </summary>
-    [Command(PackageIds.RemoveAllExceptTaskComments)]
-    internal sealed class RemoveAllExceptTaskCommentsCommand : BaseCommand<RemoveAllExceptTaskCommentsCommand>
+    [Command(PackageIds.RemoveAllExceptAnchorComments)]
+    internal sealed class RemoveAllExceptAnchorCommentsCommand : BaseCommand<RemoveAllExceptAnchorCommentsCommand>
     {
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
@@ -32,7 +32,7 @@ namespace CommentsVS.Commands
 
             try
             {
-                CommentRemovalService.RemoveComments(view, mappingSpans, preserveTaskComments: true);
+                CommentRemovalService.RemoveComments(view, mappingSpans, preserveAnchorComments: true);
             }
             catch (Exception ex)
             {

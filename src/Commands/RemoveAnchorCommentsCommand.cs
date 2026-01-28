@@ -6,10 +6,10 @@ using Microsoft.VisualStudio.Text.Editor;
 namespace CommentsVS.Commands
 {
     /// <summary>
-    /// Command to remove task comments (TODO, HACK, UNDONE, etc.) from the current document.
+    /// Command to remove anchor comments (TODO, HACK, UNDONE, etc.) from the current document.
     /// </summary>
-    [Command(PackageIds.RemoveTaskComments)]
-    internal sealed class RemoveTaskCommentsCommand : BaseCommand<RemoveTaskCommentsCommand>
+    [Command(PackageIds.RemoveAnchorComments)]
+    internal sealed class RemoveAnchorCommentsCommand : BaseCommand<RemoveAnchorCommentsCommand>
     {
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
@@ -26,7 +26,7 @@ namespace CommentsVS.Commands
 
             try
             {
-                CommentRemovalService.RemoveTaskComments(view, mappingSpans);
+                CommentRemovalService.RemoveAnchorComments(view, mappingSpans);
             }
             catch (Exception ex)
             {

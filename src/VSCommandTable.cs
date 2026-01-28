@@ -63,14 +63,14 @@ namespace CommentsVS
         public const int RemoveCommentsSubMenu = 0x021C;
         public const int RemoveCommentsAllGroup = 0x021D;
         public const int RemoveCommentsXmlDocGroup = 0x021E;
-        public const int RemoveCommentsTaskGroup = 0x021F;
+        public const int RemoveCommentsAnchorGroup = 0x021F;
         public const int RemoveCommentsRegionsGroup = 0x0227;
         public const int RemoveAllComments = 0x0220;
         public const int RemoveAllSelectedComments = 0x0221;
         public const int RemoveXmlDocComments = 0x0222;
         public const int RemoveAllExceptXmlDocComments = 0x0223;
-        public const int RemoveTaskComments = 0x0224;
-        public const int RemoveAllExceptTaskComments = 0x0225;
+        public const int RemoveAnchorComments = 0x0224;
+        public const int RemoveAllExceptAnchorComments = 0x0225;
         public const int RemoveRegions = 0x0226;
     }
 }

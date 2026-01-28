@@ -108,8 +108,8 @@
       <Group guid="CommentsVS" id="RemoveCommentsXmlDocGroup" priority="0x0200">
         <Parent guid="CommentsVS" id="RemoveCommentsSubMenu"/>
       </Group>
-      <!-- Remove Comments - Task group -->
-      <Group guid="CommentsVS" id="RemoveCommentsTaskGroup" priority="0x0300">
+      <!-- Remove Comments - Anchor group -->
+      <Group guid="CommentsVS" id="RemoveCommentsAnchorGroup" priority="0x0300">
         <Parent guid="CommentsVS" id="RemoveCommentsSubMenu"/>
       </Group>
       <!-- Remove Comments - Regions group -->
@@ -377,28 +377,28 @@
           <LocCanonicalName>.CommentsVS.RemoveAllExceptXmlDocComments</LocCanonicalName>
         </Strings>
       </Button>
-      <!-- Remove Task Comments -->
-      <Button guid="CommentsVS" id="RemoveTaskComments" priority="0x0100" type="Button">
-        <Parent guid="CommentsVS" id="RemoveCommentsTaskGroup"/>
+      <!-- Remove Anchor Comments -->
+      <Button guid="CommentsVS" id="RemoveAnchorComments" priority="0x0100" type="Button">
+        <Parent guid="CommentsVS" id="RemoveCommentsAnchorGroup"/>
         <Icon guid="ImageCatalogGuid" id="DeleteTaskList" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
-          <ButtonText>Remove Tasks</ButtonText>
-          <CanonicalName>.CommentsVS.RemoveTaskComments</CanonicalName>
-          <LocCanonicalName>.CommentsVS.RemoveTaskComments</LocCanonicalName>
+          <ButtonText>Remove Anchors</ButtonText>
+          <CanonicalName>.CommentsVS.RemoveAnchorComments</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RemoveAnchorComments</LocCanonicalName>
         </Strings>
       </Button>
-      <!-- Remove All Except Task Comments -->
-      <Button guid="CommentsVS" id="RemoveAllExceptTaskComments" priority="0x0200" type="Button">
-        <Parent guid="CommentsVS" id="RemoveCommentsTaskGroup"/>
+      <!-- Remove All Except Anchor Comments -->
+      <Button guid="CommentsVS" id="RemoveAllExceptAnchorComments" priority="0x0200" type="Button">
+        <Parent guid="CommentsVS" id="RemoveCommentsAnchorGroup"/>
         <Icon guid="ImageCatalogGuid" id="TaskList" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
-          <ButtonText>Remove All Except Tasks</ButtonText>
-          <CanonicalName>.CommentsVS.RemoveAllExceptTaskComments</CanonicalName>
-          <LocCanonicalName>.CommentsVS.RemoveAllExceptTaskComments</LocCanonicalName>
+          <ButtonText>Remove All Except Anchors</ButtonText>
+          <CanonicalName>.CommentsVS.RemoveAllExceptAnchorComments</CanonicalName>
+          <LocCanonicalName>.CommentsVS.RemoveAllExceptAnchorComments</LocCanonicalName>
         </Strings>
       </Button>
       <!-- Remove Regions -->
@@ -435,8 +435,8 @@
     <VisibilityItem guid="CommentsVS" id="RemoveAllSelectedComments" context="GUID_TextEditorFactory" />
     <VisibilityItem guid="CommentsVS" id="RemoveXmlDocComments" context="GUID_TextEditorFactory" />
     <VisibilityItem guid="CommentsVS" id="RemoveAllExceptXmlDocComments" context="GUID_TextEditorFactory" />
-    <VisibilityItem guid="CommentsVS" id="RemoveTaskComments" context="GUID_TextEditorFactory" />
-    <VisibilityItem guid="CommentsVS" id="RemoveAllExceptTaskComments" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="RemoveAnchorComments" context="GUID_TextEditorFactory" />
+    <VisibilityItem guid="CommentsVS" id="RemoveAllExceptAnchorComments" context="GUID_TextEditorFactory" />
     <VisibilityItem guid="CommentsVS" id="RemoveRegions" context="GUID_TextEditorFactory" />
   </VisibilityConstraints>
 
@@ -491,15 +491,15 @@
       <IDSymbol name="RemoveCommentsSubMenu" value="0x021C" />
       <IDSymbol name="RemoveCommentsAllGroup" value="0x021D" />
       <IDSymbol name="RemoveCommentsXmlDocGroup" value="0x021E" />
-      <IDSymbol name="RemoveCommentsTaskGroup" value="0x021F" />
+      <IDSymbol name="RemoveCommentsAnchorGroup" value="0x021F" />
       <IDSymbol name="RemoveCommentsRegionsGroup" value="0x0227" />
       <!-- Remove Comments commands -->
       <IDSymbol name="RemoveAllComments" value="0x0220" />
       <IDSymbol name="RemoveAllSelectedComments" value="0x0221" />
       <IDSymbol name="RemoveXmlDocComments" value="0x0222" />
       <IDSymbol name="RemoveAllExceptXmlDocComments" value="0x0223" />
-      <IDSymbol name="RemoveTaskComments" value="0x0224" />
-      <IDSymbol name="RemoveAllExceptTaskComments" value="0x0225" />
+      <IDSymbol name="RemoveAnchorComments" value="0x0224" />
+      <IDSymbol name="RemoveAllExceptAnchorComments" value="0x0225" />
       <IDSymbol name="RemoveRegions" value="0x0226" />
     </GuidSymbol>
   </Symbols>

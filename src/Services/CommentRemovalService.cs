@@ -120,10 +120,10 @@ namespace CommentsVS.Services
         }
 
         /// <summary>
-        /// Determines if a line contains a task comment (TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW, ANCHOR, or custom tags).
-        /// Task comments must have the keyword immediately after the comment prefix (e.g., "// TODO:" not "// Note that...").
+        /// Determines if a line contains an anchor comment (TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW, ANCHOR, or custom tags).
+        /// Anchor comments must have the keyword immediately after the comment prefix (e.g., "// TODO:" not "// Note that...").
         /// </summary>
-        public static bool ContainsTaskComment(ITextSnapshotLine line)
+        public static bool ContainsAnchorComment(ITextSnapshotLine line)
         {
             var text = line.GetText();
             var customTags = General.Instance?.CustomTags ?? string.Empty;
@@ -138,13 +138,13 @@ namespace CommentsVS.Services
                 }
             }
 
-            // Match task keywords that appear immediately after a comment prefix
+            // Match anchor keywords that appear immediately after a comment prefix
             // Supports: // TODO, /* TODO, * TODO, ' TODO (VB), <!-- TODO
-            var taskRegex = new Regex(
+            var anchorRegex = new Regex(
                 $@"(//|/\*|\*|'|<!--)\s*({keywords})\b:?",
                 RegexOptions.IgnoreCase);
 
-            return taskRegex.IsMatch(text);
+            return anchorRegex.IsMatch(text);
         }
 
         /// <summary>
@@ -154,7 +154,7 @@ namespace CommentsVS.Services
             IWpfTextView view,
             IEnumerable<IMappingSpan> mappingSpans,
             bool preserveXmlDoc = false,
-            bool preserveTaskComments = false)
+            bool preserveAnchorComments = false)
         {
             List<IMappingSpan> spans = [.. mappingSpans];
             if (spans.Count == 0)
@@ -198,7 +198,7 @@ namespace CommentsVS.Services
                 // Check if this span should be preserved
                 var shouldPreserve = lines.Any(line =>
                     (preserveXmlDoc && IsXmlDocComment(line)) ||
-                    (preserveTaskComments && ContainsTaskComment(line)));
+                    (preserveAnchorComments && ContainsAnchorComment(line)));
 
                 if (shouldPreserve)
                 {
@@ -352,15 +352,15 @@ namespace CommentsVS.Services
         }
 
         /// <summary>
-        /// Removes only task comments (TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW, ANCHOR, or custom tags) from the buffer.
-        /// Deletes entire comment lines that contain task keywords.
+        /// Removes only anchor comments (TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW, ANCHOR, or custom tags) from the buffer.
+        /// Deletes entire comment lines that contain anchor keywords.
         /// </summary>
-        public static void RemoveTaskComments(IWpfTextView view, IEnumerable<IMappingSpan> mappingSpans)
+        public static void RemoveAnchorComments(IWpfTextView view, IEnumerable<IMappingSpan> mappingSpans)
         {
             List<IMappingSpan> spans = [.. mappingSpans];
             HashSet<int> affectedLines = [];
 
-            // First pass: identify all lines containing task comments
+            // First pass: identify all lines containing anchor comments
             foreach (IMappingSpan mappingSpan in spans)
             {
                 SnapshotPoint? startPoint = mappingSpan.Start.GetPoint(view.TextBuffer, PositionAffinity.Predecessor);
@@ -376,7 +376,7 @@ namespace CommentsVS.Services
 
                 foreach (ITextSnapshotLine line in lines)
                 {
-                    if (ContainsTaskComment(line))
+                    if (ContainsAnchorComment(line))
                     {
                         affectedLines.Add(line.LineNumber);
                     }

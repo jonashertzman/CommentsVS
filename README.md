@@ -49,11 +49,11 @@ Comment Studio solves all of these problems, letting you focus on writing great 
 
 **See your documentation, not the XML.** Choose how you want to view comments:
 
-| Mode | Description |
-|------|-------------|
-| **Off** | Raw XML syntax with standard Visual Studio coloring |
+| Mode        | Description                                                      |
+| ----------- | ---------------------------------------------------------------- |
+| **Off**     | Raw XML syntax with standard Visual Studio coloring              |
 | **Compact** | Collapse comments to a single line showing just the summary text |
-| **Full** | Rich formatted rendering—read documentation like a web page |
+| **Full**    | Rich formatted rendering—read documentation like a web page      |
 
 Select your preferred mode from the **Edit > Comments** menu or right-click context menu. The active mode is indicated with a checkmark.
 
@@ -79,21 +79,21 @@ You can also enable **Collapse XML Doc Comments by Default** from the **Edit > C
 
 **Customizing colors:** Rendered comment colors can be customized via **Tools > Options > Environment > Fonts and Colors** under these entries:
 
-| Entry | Description |
-|-------|-------------|
-| Rendered Comment - Text | Main comment text color |
+| Entry                      | Description                                 |
+| -------------------------- | ------------------------------------------- |
+| Rendered Comment - Text    | Main comment text color                     |
 | Rendered Comment - Heading | Section headings (Returns, Remarks, params) |
-| Rendered Comment - Code | Inline code formatting |
-| Rendered Comment - Link | Links, param refs, and type refs |
+| Rendered Comment - Code    | Inline code formatting                      |
+| Rendered Comment - Link    | Links, param refs, and type refs            |
 
 **Left border indicator:** A subtle vertical line on the left edge helps distinguish rendered comments from code—similar to Markdown blockquotes. Control when it appears via **Tools > Options > Comments > Left Border**:
 
-| Option | Description |
-|--------|-------------|
-| Off | No border shown |
+| Option         | Description                                            |
+| -------------- | ------------------------------------------------------ |
+| Off            | No border shown                                        |
 | Multiline only | Border on expanded (Full mode) comments only (default) |
-| Inline only | Border on compact (single-line) comments only |
-| Always | Border on all rendered comments |
+| Inline only    | Border on compact (single-line) comments only          |
+| Always         | Border on all rendered comments                        |
 
 ![Rendered Comments](art/rendered-comments.png)
 
@@ -101,14 +101,14 @@ You can also enable **Collapse XML Doc Comments by Default** from the **Edit > C
 
 **Write expressive documentation with familiar syntax.** Comment Studio supports basic Markdown formatting within your XML documentation comments:
 
-| Syntax | Renders As |
-|--------|------------|
-| `**bold**` or `__bold__` | **bold** |
-| `*italic*` or `_italic_` | *italic* |
-| `` `code` `` | `code` |
-| `~~strikethrough~~` | ~~strikethrough~~ |
-| `[text](url)` | clickable link |
-| `<https://...>` | auto-link |
+| Syntax                   | Renders As        |
+| ------------------------ | ----------------- |
+| `**bold**` or `__bold__` | **bold**          |
+| `*italic*` or `_italic_` | *italic*          |
+| `` `code` ``             | `code`            |
+| `~~strikethrough~~`      | ~~strikethrough~~ |
+| `[text](url)`            | clickable link    |
+| `<https://...>`          | auto-link         |
 
 Links are clickable and open in your default browser.
 
@@ -171,15 +171,15 @@ Works with C# and VB.NET XML documentation comments:
 
 **Never miss a TODO again.** Comment tags like TODO, HACK, NOTE, BUG, FIXME, UNDONE, and REVIEW are automatically highlighted with distinct colors, making them impossible to overlook. Hover over any tag to see a tooltip explaining its semantic meaning.
 
-| Tag | Default Color | Description |
-|-----|---------------|-------------|
-| TODO | Orange | Tasks to be completed |
-| HACK | Crimson | Temporary workarounds |
-| NOTE | Lime Green | Important notes |
-| BUG | Red | Known bugs |
-| FIXME | Orange Red | Code that needs fixing |
-| UNDONE | Purple | Incomplete work |
-| REVIEW | Dodger Blue | Code needing review |
+| Tag    | Default Color | Description            |
+| ------ | ------------- | ---------------------- |
+| TODO   | Orange        | Tasks to be completed  |
+| HACK   | Crimson       | Temporary workarounds  |
+| NOTE   | Lime Green    | Important notes        |
+| BUG    | Red           | Known bugs             |
+| FIXME  | Orange Red    | Code that needs fixing |
+| UNDONE | Purple        | Incomplete work        |
+| REVIEW | Dodger Blue   | Code needing review    |
 
 #### Custom Tags
 
@@ -228,14 +228,14 @@ Notes:
 
 **Make different comment types visually distinct.** Inspired by the popular "Better Comments" extension, Comment Studio highlights comments differently based on their prefix character:
 
-| Prefix | Color | Style | Purpose |
-|--------|-------|-------|---------|
-| `// !` | Red | Normal | Alerts and warnings |
-| `// ?` | Blue | Normal | Questions and queries |
-| `// *` | Green | Normal | Important highlights |
-| `// //` | Gray | Strikethrough | Deprecated/old code |
-| `// -` | Dark Gray | Normal | Disabled/removed |
-| `// >` | Purple | Italic | Quotes and references |
+| Prefix  | Color     | Style         | Purpose               |
+| ------- | --------- | ------------- | --------------------- |
+| `// !`  | Red       | Normal        | Alerts and warnings   |
+| `// ?`  | Blue      | Normal        | Questions and queries |
+| `// *`  | Green     | Normal        | Important highlights  |
+| `// //` | Gray      | Strikethrough | Deprecated/old code   |
+| `// -`  | Dark Gray | Normal        | Disabled/removed      |
+| `// >`  | Purple    | Italic        | Quotes and references |
 
 Example:
 
@@ -274,27 +274,27 @@ Open it via **View > Other Windows > Code Anchors**.
 
 Use the **Export** split button in the toolbar to export the currently filtered anchors:
 
-| Format | Best For |
-|--------|----------|
-| **TSV** | Paste directly into Excel or Google Sheets |
-| **CSV** | Import into spreadsheets or databases |
-| **Markdown** | Documentation, GitHub issues, wikis |
-| **JSON** | Programmatic consumption, CI/CD integration |
+| Format       | Best For                                    |
+| ------------ | ------------------------------------------- |
+| **TSV**      | Paste directly into Excel or Google Sheets  |
+| **CSV**      | Import into spreadsheets or databases       |
+| **Markdown** | Documentation, GitHub issues, wikis         |
+| **JSON**     | Programmatic consumption, CI/CD integration |
 
 The export respects your current filters (scope, type, and search), so you can export exactly the anchors you need. Choose **Export to File...** to save to disk, or use the copy options for quick clipboard access.
 
 #### Supported Anchor Types
 
-| Type | Color | Description |
-|------|-------|-------------|
-| TODO | Orange | Tasks to be completed |
-| HACK | Crimson | Temporary workarounds |
-| NOTE | Lime Green | Important notes |
-| BUG | Red | Known bugs |
-| FIXME | Orange Red | Code that needs fixing |
-| UNDONE | Purple | Incomplete work |
-| REVIEW | Dodger Blue | Code needing review |
-| ANCHOR | Cyan | Named navigation points |
+| Type   | Color       | Description             |
+| ------ | ----------- | ----------------------- |
+| TODO   | Orange      | Tasks to be completed   |
+| HACK   | Crimson     | Temporary workarounds   |
+| NOTE   | Lime Green  | Important notes         |
+| BUG    | Red         | Known bugs              |
+| FIXME  | Orange Red  | Code that needs fixing  |
+| UNDONE | Purple      | Incomplete work         |
+| REVIEW | Dodger Blue | Code needing review     |
+| ANCHOR | Cyan        | Named navigation points |
 
 #### ANCHOR Tags
 
@@ -310,12 +310,12 @@ These are especially useful for marking important sections you frequently need t
 
 **Jump to issues instantly.** Issue references like `#123` in comments automatically become clickable links to the issue on your hosting provider. No more copying issue numbers and searching manually. The extension detects the Git remote URL and supports:
 
-| Provider | Example Link |
-|----------|-------------|
-| GitHub | `<https://github.com/owner/repo/issues/123`> |
-| GitLab | `<https://gitlab.com/owner/repo/-/issues/123`> |
-| Bitbucket | `<https://bitbucket.org/owner/repo/issues/123`> |
-| Azure DevOps | `<https://dev.azure.com/org/project/_workitems/edit/123`> |
+| Provider     | Example Link                                              |
+| ------------ | --------------------------------------------------------- |
+| GitHub       | `<https://github.com/owner/repo/issues/123>`              |
+| GitLab       | `<https://gitlab.com/owner/repo/-/issues/123>`            |
+| Bitbucket    | `<https://bitbucket.org/owner/repo/issues/123>`           |
+| Azure DevOps | `<https://dev.azure.com/org/project/_workitems/edit/123>` |
 
 **Ctrl+Click** on any `#123` reference in a comment to open the issue in your browser. Hover over the reference to see a tooltip with the full URL.
 
@@ -353,7 +353,7 @@ These are especially useful for marking important sections you frequently need t
 
 ![Link Anchors Intellisense](art/link-anchors-intellisense.png)
 
-#### Features
+#### Additional features
 
 - **Underlined links** — Only the file path/anchor is underlined (not "LINK:")
 - **Hover tooltips** — See the resolved file path and validation status
@@ -381,19 +381,19 @@ Link anchors work with the existing ANCHOR tags to create a navigation system wi
 
 Access these commands via **Edit > Comments** menu or the right-click context menu:
 
-| Command | Description |
-|---------|-------------|
-| **Remove All Comments** | Removes all comments from the current document |
-| **Remove All Comments in Selection** | Removes comments within the selected text only |
-| **Remove All Except XML Doc Comments** | Removes regular comments but preserves `///` documentation |
-| **Remove All Except Task Comments** | Removes comments but preserves TODO, HACK, NOTE, BUG, etc. |
-| **Remove XML Doc Comments Only** | Removes only `///` documentation comments |
-| **Remove Task Comments Only** | Removes only TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW, and custom tag comments |
-| **Remove Regions** | Removes all `#region` and `#endregion` directives |
+| Command                                | Description                                                                        |
+| -------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Remove All Comments**                | Removes all comments from the current document                                     |
+| **Remove All Comments in Selection**   | Removes comments within the selected text only                                     |
+| **Remove All Except XML Doc Comments** | Removes regular comments but preserves `///` documentation                         |
+| **Remove All Except Anchors**          | Removes comments but preserves TODO, HACK, NOTE, BUG, etc.                         |
+| **Remove XML Doc Comments Only**       | Removes only `///` documentation comments                                          |
+| **Remove Anchors Only**                | Removes only TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW, and custom tag comments |
+| **Remove Regions**                     | Removes all `#region` and `#endregion` directives                                  |
 
 **Smart cleanup:** When removing comments, entire lines are deleted if they become empty (just whitespace or orphaned comment delimiters like `<!--` or `-->`). This keeps your code clean without leaving behind empty lines.
 
-**Task comment detection:** The "Except Task Comments" option recognizes all built-in anchor tags (TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW) plus any custom tags you've defined in settings.
+**Anchor detection:** The "Except Anchors" option recognizes all built-in anchor tags (TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW) plus any custom tags you've defined in settings.
 
 ## Options
 
@@ -401,54 +401,54 @@ Configure the extension behavior via **Tools > Options > CommentsVS**.
 
 ### Comment Reflow
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Maximum Line Length | 120 | Maximum line length for reflowed comments |
-| Enable Reflow on Format Document | On | Reflow comments when formatting document/selection |
-| Enable Reflow on Paste | On | Reflow comments when pasting into comment blocks |
-| Enable Reflow While Typing | On | Automatically reflow when line exceeds max length while typing |
-| Use Compact Style for Short Summaries | On | Use single-line format for short summaries |
-| Preserve Blank Lines | On | Keep intentional blank lines in comments |
+| Setting                               | Default | Description                                                    |
+| ------------------------------------- | ------- | -------------------------------------------------------------- |
+| Maximum Line Length                   | 120     | Maximum line length for reflowed comments                      |
+| Enable Reflow on Format Document      | On      | Reflow comments when formatting document/selection             |
+| Enable Reflow on Paste                | On      | Reflow comments when pasting into comment blocks               |
+| Enable Reflow While Typing            | On      | Automatically reflow when line exceeds max length while typing |
+| Use Compact Style for Short Summaries | On      | Use single-line format for short summaries                     |
+| Preserve Blank Lines                  | On      | Keep intentional blank lines in comments                       |
 
 ### Comment Outlining
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Collapsed by Default | Off | Automatically collapse XML doc comments when opening files (only applies when Rendering Mode is Off or Compact) |
+| Setting              | Default | Description                                                                                                     |
+| -------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
+| Collapsed by Default | Off     | Automatically collapse XML doc comments when opening files (only applies when Rendering Mode is Off or Compact) |
 
 ### Comment Rendering
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Rendering Mode | Off | Controls how XML doc comments are displayed: Off (raw XML), Compact (outlining with stripped tags), or Full (rich formatted rendering) |
+| Setting        | Default | Description                                                                                                                            |
+| -------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Rendering Mode | Off     | Controls how XML doc comments are displayed: Off (raw XML), Compact (outlining with stripped tags), or Full (rich formatted rendering) |
 
 Rendered comment colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Rendered Comment - [Type]" entries (Text, Heading, Code, Link).
 
 ### Comment Tags
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Enable Comment Tag Highlighting | On | Enable/disable tag highlighting |
-| Enable Prefix Highlighting | On | Enable/disable prefix-based comment highlighting (Better Comments style) |
-| Custom Tags | (empty) | Comma-separated list of custom tags to highlight (e.g., PERF, SECURITY, DEBT) |
+| Setting                         | Default | Description                                                                   |
+| ------------------------------- | ------- | ----------------------------------------------------------------------------- |
+| Enable Comment Tag Highlighting | On      | Enable/disable tag highlighting                                               |
+| Enable Prefix Highlighting      | On      | Enable/disable prefix-based comment highlighting (Better Comments style)      |
+| Custom Tags                     | (empty) | Comma-separated list of custom tags to highlight (e.g., PERF, SECURITY, DEBT) |
 
 Tag colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment Tag - [TAG]" entries. Custom tags share a single color under "Comment Tag - Custom". Prefix colors can be customized under "Comment - [Type]" entries.
 
 ### Code Anchors
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Scan Solution on Load | On | Automatically scan the solution for anchors when opening the Code Anchors tool window |
-| File Extensions to Scan | .cs, .vb, .js, .ts, ... | Comma-separated list of file extensions to include when scanning |
-| Folders to Ignore | node_modules, bin, obj, ... | Comma-separated list of folder names to skip during scanning |
+| Setting                 | Default                     | Description                                                                           |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------------------------- |
+| Scan Solution on Load   | On                          | Automatically scan the solution for anchors when opening the Code Anchors tool window |
+| File Extensions to Scan | .cs, .vb, .js, .ts, ...     | Comma-separated list of file extensions to include when scanning                      |
+| Folders to Ignore       | node_modules, bin, obj, ... | Comma-separated list of folder names to skip during scanning                          |
 
 ![Options](art/options.png)
 
 ### Issue Links
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Enable Issue Links | On | Make #123 references clickable links to issues |
+| Setting            | Default | Description                                    |
+| ------------------ | ------- | ---------------------------------------------- |
+| Enable Issue Links | On      | Make #123 references clickable links to issues |
 
 ## Getting Started
 
