@@ -170,6 +170,67 @@ namespace CommentsVS.Services
             }
         }
 
+        /// <summary>
+        /// Renders raw XML documentation content into formatted segments.
+        /// This overload is primarily for testing purposes.
+        /// </summary>
+        /// <param name="xmlContent">The raw XML content (without comment prefixes).</param>
+        /// <param name="repoInfo">Optional Git repository info for resolving issue reference URLs.</param>
+        public static RenderedComment RenderXmlContent(string xmlContent, GitRepositoryInfo repoInfo = null)
+        {
+            _currentRepoInfo = repoInfo;
+            try
+            {
+                return RenderXmlContentInternal(xmlContent);
+            }
+            finally
+            {
+                _currentRepoInfo = null;
+            }
+        }
+
+        private static RenderedComment RenderXmlContentInternal(string xmlContent)
+        {
+            var result = new RenderedComment { Indentation = "" };
+
+            if (string.IsNullOrWhiteSpace(xmlContent))
+            {
+                return result;
+            }
+
+            // Wrap in root element for parsing
+            var wrappedXml = $"<root>{xmlContent}</root>";
+
+            try
+            {
+                var doc = XDocument.Parse(wrappedXml);
+
+                foreach (XNode child in doc.Root.Nodes())
+                {
+                    RenderTopLevelNode(child, result);
+                }
+
+                // Also populate the legacy Lines collection from sections for backward compatibility
+                PopulateLinesFromSections(result);
+            }
+            catch
+            {
+                // If XML parsing fails, just render as plain text
+                var line = new RenderedLine();
+                line.Segments.Add(new RenderedSegment(CleanText(xmlContent)));
+                result.Lines.Add(line);
+
+                // Also add as a summary section
+                var summarySection = new RenderedCommentSection(CommentSectionType.Summary);
+                var summaryLine = new RenderedLine();
+                summaryLine.Segments.Add(new RenderedSegment(CleanText(xmlContent)));
+                summarySection.Lines.Add(summaryLine);
+                result.Sections.Add(summarySection);
+            }
+
+            return result;
+        }
+
         private static RenderedComment RenderInternal(XmlDocCommentBlock block)
         {
             var result = new RenderedComment { Indentation = block.Indentation };
@@ -337,6 +398,10 @@ namespace CommentsVS.Services
                     RenderSeeAlsoSection(element, result);
                     break;
 
+                case "inheritdoc":
+                    RenderInheritDocSection(element, result);
+                    break;
+
                 default:
                     // Unknown top-level tag - add to summary or create one
                     RenderedCommentSection summary = result.Sections.FirstOrDefault(s => s.Type == CommentSectionType.Summary);
@@ -398,6 +463,31 @@ namespace CommentsVS.Services
                 line.Segments.Add(new RenderedSegment(displayText, RenderedSegmentType.Link, linkTarget));
                 seeAlsoSection.Lines.Add(line);
             }
+        }
+
+        private static void RenderInheritDocSection(XElement element, RenderedComment result)
+        {
+            // inheritdoc is a special tag that inherits documentation from a base class or interface.
+            // Since we can't resolve the inherited docs at render time, show a descriptive message.
+            var section = new RenderedCommentSection(CommentSectionType.Summary);
+            var line = new RenderedLine();
+
+            // Check for cref attribute which specifies explicit inheritance source
+            var cref = (string)element.Attribute("cref") ?? "";
+            if (!string.IsNullOrEmpty(cref))
+            {
+                var typeName = GetTypeNameFromCref(cref);
+                line.Segments.Add(new RenderedSegment("(Documentation inherited from ", RenderedSegmentType.Italic));
+                line.Segments.Add(new RenderedSegment(typeName, RenderedSegmentType.Code));
+                line.Segments.Add(new RenderedSegment(")", RenderedSegmentType.Italic));
+            }
+            else
+            {
+                line.Segments.Add(new RenderedSegment("(Documentation inherited)", RenderedSegmentType.Italic));
+            }
+
+            section.Lines.Add(line);
+            result.Sections.Add(section);
         }
 
         private static void RenderNode(XNode node, RenderedCommentSection section)
@@ -629,7 +719,7 @@ namespace CommentsVS.Services
 
             foreach (XNode child in element.Nodes())
             {
-                if (child is XElement itemElement && itemElement.Name.LocalName.ToLowerInvariant() == "item")
+                if (child is XElement itemElement && itemElement.Name.LocalName.Equals("item", StringComparison.InvariantCultureIgnoreCase))
                 {
                     var line = new RenderedLine();
                     var bullet = listType == "number" ? $"{itemNumber++}. " : "  • ";
@@ -988,12 +1078,39 @@ namespace CommentsVS.Services
                 return string.Empty;
             }
 
-            var xmlContent = block.XmlContent;
+            return GetStrippedSummaryFromXml(block.XmlContent);
+        }
+
+        /// <summary>
+        /// Extracts plain text summary from raw XML content for compact collapsed display.
+        /// This overload is primarily for testing purposes.
+        /// </summary>
+        /// <param name="xmlContent">The raw XML content (without comment prefixes).</param>
+        public static string GetStrippedSummaryFromXml(string xmlContent)
+        {
+            if (string.IsNullOrWhiteSpace(xmlContent))
+            {
+                return string.Empty;
+            }
+
             var wrappedXml = $"<root>{xmlContent}</root>";
 
             try
             {
                 var doc = XDocument.Parse(wrappedXml);
+
+                // Check for inheritdoc element
+                XElement inheritDocNode = doc.Root.Element("inheritdoc");
+                if (inheritDocNode != null)
+                {
+                    var cref = (string)inheritDocNode.Attribute("cref") ?? "";
+                    if (!string.IsNullOrEmpty(cref))
+                    {
+                        var typeName = GetTypeNameFromCref(cref);
+                        return $"(Documentation inherited from {typeName})";
+                    }
+                    return "(Documentation inherited)";
+                }
 
                 // Find the summary element
                 XElement summaryNode = doc.Root.Element("summary");

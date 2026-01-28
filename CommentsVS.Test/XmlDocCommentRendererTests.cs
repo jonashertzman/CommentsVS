@@ -378,4 +378,64 @@ public sealed class XmlDocCommentRendererTests
     }
 
     #endregion
+
+    #region Inheritdoc Tests
+
+    [TestMethod]
+    public void GetStrippedSummaryFromXml_WithInheritdoc_ReturnsInheritedMessage()
+    {
+        var result = XmlDocCommentRenderer.GetStrippedSummaryFromXml("<inheritdoc/>");
+
+        Assert.AreEqual("(Documentation inherited)", result);
+    }
+
+    [TestMethod]
+    public void GetStrippedSummaryFromXml_WithInheritdocAndCref_ReturnsInheritedMessageWithTypeName()
+    {
+        var result = XmlDocCommentRenderer.GetStrippedSummaryFromXml("<inheritdoc cref=\"IDisposable.Dispose\"/>");
+
+        Assert.AreEqual("(Documentation inherited from Dispose)", result);
+    }
+
+    [TestMethod]
+    public void GetStrippedSummaryFromXml_WithInheritdocFullCref_ReturnsInheritedMessageWithTypeName()
+    {
+        var result = XmlDocCommentRenderer.GetStrippedSummaryFromXml("<inheritdoc cref=\"T:System.IDisposable\"/>");
+
+        Assert.AreEqual("(Documentation inherited from IDisposable)", result);
+    }
+
+    [TestMethod]
+    public void RenderXmlContent_WithInheritdoc_CreatesSummarySection()
+    {
+        RenderedComment result = XmlDocCommentRenderer.RenderXmlContent("<inheritdoc/>");
+
+        Assert.IsNotNull(result.Summary, "Should have a summary section");
+        Assert.IsFalse(result.Summary.IsEmpty, "Summary section should not be empty");
+        Assert.IsTrue(result.Summary.Lines.Any(l => l.Segments.Any(s => s.Text.Contains("Documentation inherited"))),
+            "Should contain inherited documentation message");
+    }
+
+    [TestMethod]
+    public void RenderXmlContent_WithInheritdocAndCref_IncludesTypeNameInMessage()
+    {
+        RenderedComment result = XmlDocCommentRenderer.RenderXmlContent("<inheritdoc cref=\"ICloneable.Clone\"/>");
+
+        Assert.IsNotNull(result.Summary, "Should have a summary section");
+        List<RenderedSegment> allSegments = [.. result.Summary.Lines.SelectMany(l => l.Segments)];
+        Assert.IsTrue(allSegments.Any(s => s.Type == RenderedSegmentType.Code && s.Text == "Clone"),
+            "Should have code segment with type name");
+    }
+
+    [TestMethod]
+    public void RenderXmlContent_WithInheritdoc_UsesItalicForMessage()
+    {
+        RenderedComment result = XmlDocCommentRenderer.RenderXmlContent("<inheritdoc/>");
+
+        List<RenderedSegment> allSegments = [.. result.Summary.Lines.SelectMany(l => l.Segments)];
+        Assert.IsTrue(allSegments.Any(s => s.Type == RenderedSegmentType.Italic),
+            "Inherited documentation message should use italic styling");
+    }
+
+    #endregion
 }
