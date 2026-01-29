@@ -438,4 +438,74 @@ public sealed class XmlDocCommentRendererTests
     }
 
     #endregion
+
+    #region Remarks with XML Tags Tests
+
+    [TestMethod]
+    public void RenderXmlContent_RemarksWithXmlTagsOnMultipleLines_PreservesLineBreaks()
+    {
+        // This is the exact scenario from issue #31
+        var xml = """
+            <summary>Test summary</summary>
+            <remarks>
+            Line 1 with <c>SomeType</c> reference.
+            Line 2 with <c>AnotherType</c> reference.
+            </remarks>
+            """;
+
+        RenderedComment result = XmlDocCommentRenderer.RenderXmlContent(xml);
+
+        RenderedCommentSection remarksSection = result.Sections.FirstOrDefault(s => s.Type == CommentSectionType.Remarks);
+        Assert.IsNotNull(remarksSection, "Should have a remarks section");
+
+        // Filter out blank lines to count content lines
+        List<RenderedLine> contentLines = [.. remarksSection.Lines.Where(l => !l.IsBlank)];
+        Assert.IsGreaterThanOrEqualTo(2, contentLines.Count, $"Expected at least 2 content lines in remarks, got {contentLines.Count}");
+
+        // Verify both lines have code segments
+        var linesWithCode = contentLines.Where(l => l.Segments.Any(s => s.Type == RenderedSegmentType.Code)).ToList();
+        Assert.IsGreaterThanOrEqualTo(2, linesWithCode.Count, $"Expected at least 2 lines with code segments, got {linesWithCode.Count}");
+    }
+
+    [TestMethod]
+    public void RenderXmlContent_RemarksWithMixedContent_PreservesStructure()
+    {
+        var xml = """
+            <remarks>
+            First paragraph with <c>Code1</c>.
+            Second paragraph with <see cref="Type"/> reference.
+            </remarks>
+            """;
+
+        RenderedComment result = XmlDocCommentRenderer.RenderXmlContent(xml);
+
+        RenderedCommentSection remarksSection = result.Sections.FirstOrDefault(s => s.Type == CommentSectionType.Remarks);
+        Assert.IsNotNull(remarksSection, "Should have a remarks section");
+
+        // Verify content is not collapsed to a single line
+        List<RenderedLine> contentLines = [.. remarksSection.Lines.Where(l => !l.IsBlank)];
+        Assert.IsGreaterThanOrEqualTo(2, contentLines.Count, $"Content should span multiple lines, got {contentLines.Count}");
+    }
+
+    [TestMethod]
+    public void RenderXmlContent_RemarksWithInlineCode_RendersCodeSegments()
+    {
+        var xml = """
+            <remarks>
+            Use <c>MyMethod</c> for processing.
+            </remarks>
+            """;
+
+        RenderedComment result = XmlDocCommentRenderer.RenderXmlContent(xml);
+
+        RenderedCommentSection remarksSection = result.Sections.FirstOrDefault(s => s.Type == CommentSectionType.Remarks);
+        Assert.IsNotNull(remarksSection, "Should have a remarks section");
+
+        List<RenderedSegment> allSegments = [.. remarksSection.Lines.SelectMany(l => l.Segments)];
+        RenderedSegment codeSegment = allSegments.FirstOrDefault(s => s.Type == RenderedSegmentType.Code);
+        Assert.IsNotNull(codeSegment, "Should have a code segment");
+        Assert.AreEqual("MyMethod", codeSegment.Text);
+    }
+
+    #endregion
 }

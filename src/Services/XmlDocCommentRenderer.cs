@@ -494,17 +494,7 @@ namespace CommentsVS.Services
         {
             if (node is XText textNode)
             {
-                var text = CleanText(textNode.Value);
-                if (!string.IsNullOrWhiteSpace(text))
-                {
-                    RenderedLine line = GetOrCreateCurrentLine(section);
-                    // Process markdown patterns in the text (with issue reference support)
-                    List<RenderedSegment> segments = ProcessMarkdownInText(text, _currentRepoInfo);
-                    foreach (RenderedSegment segment in segments)
-                    {
-                        line.Segments.Add(segment);
-                    }
-                }
+                RenderTextNode(textNode.Value, section);
                 return;
             }
 
@@ -630,7 +620,7 @@ namespace CommentsVS.Services
             if (!string.IsNullOrEmpty(name))
             {
                 RenderedLine line = GetOrCreateCurrentLine(section);
-                line.Segments.Add(new RenderedSegment(name, RenderedSegmentType.ParamRef));
+                line.Segments.Add(new RenderedSegment(name, RenderedSegmentType.Code));
             }
         }
 
@@ -640,7 +630,7 @@ namespace CommentsVS.Services
             if (!string.IsNullOrEmpty(name))
             {
                 RenderedLine line = GetOrCreateCurrentLine(section);
-                line.Segments.Add(new RenderedSegment(name, RenderedSegmentType.TypeParamRef));
+                line.Segments.Add(new RenderedSegment(name, RenderedSegmentType.Code));
             }
         }
 
@@ -783,6 +773,84 @@ namespace CommentsVS.Services
                 return line;
             }
             return result.Lines[result.Lines.Count - 1];
+        }
+
+        /// <summary>
+        /// Renders a text node, preserving significant line breaks while normalizing whitespace within lines.
+        /// </summary>
+        private static void RenderTextNode(string text, RenderedCommentSection section)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            // Split by line breaks to preserve paragraph structure
+            var lines = text.Split(["\r\n", "\n", "\r"], StringSplitOptions.None);
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var lineText = CleanLineText(lines[i]);
+
+                if (!string.IsNullOrWhiteSpace(lineText))
+                {
+                    RenderedLine line = GetOrCreateCurrentLine(section);
+                    // Process markdown patterns in the text (with issue reference support)
+                    List<RenderedSegment> segments = ProcessMarkdownInText(lineText, _currentRepoInfo);
+                    foreach (RenderedSegment segment in segments)
+                    {
+                        line.Segments.Add(segment);
+                    }
+                }
+
+                // Add a new line after each source line (except the last one)
+                // This preserves the original line structure
+                if (i < lines.Length - 1)
+                {
+                    section.Lines.Add(new RenderedLine());
+                }
+            }
+        }
+
+        /// <summary>
+        /// Cleans text within a single line, normalizing whitespace but preserving leading/trailing spaces
+        /// for proper inline element separation.
+        /// </summary>
+        private static string CleanLineText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return "";
+            }
+
+            // Remember if there was leading/trailing whitespace
+            var hadLeadingSpace = text.Length > 0 && char.IsWhiteSpace(text[0]);
+            var hadTrailingSpace = text.Length > 0 && char.IsWhiteSpace(text[text.Length - 1]);
+
+            // Normalize horizontal whitespace (spaces, tabs) but not line breaks
+            text = _whitespaceRegex.Replace(text, " ");
+
+            var trimmed = text.Trim();
+
+            if (trimmed.Length == 0)
+            {
+                // Pure whitespace - return single space if there was any whitespace
+                // but only if it's meaningful for inline element separation
+                return (hadLeadingSpace || hadTrailingSpace) ? " " : "";
+            }
+
+            // Re-add single leading/trailing space for inline element separation
+            var result = trimmed;
+            if (hadLeadingSpace)
+            {
+                result = " " + result;
+            }
+            if (hadTrailingSpace)
+            {
+                result += " ";
+            }
+
+            return result;
         }
 
         private static string GetTypeNameFromCref(string cref)
@@ -1133,6 +1201,7 @@ namespace CommentsVS.Services
 
         /// <summary>
         /// Recursively extracts plain text from an XML node, preserving text content but removing tags.
+        /// Code-like elements (paramref, typeparamref, see cref, c) are wrapped in backticks for markdown processing.
         /// </summary>
         private static string ExtractPlainText(XElement node)
         {
@@ -1152,12 +1221,30 @@ namespace CommentsVS.Services
                     {
                         case "paramref":
                         case "typeparamref":
-                            sb.Append((string)element.Attribute("name") ?? "");
+                            var name = (string)element.Attribute("name") ?? "";
+                            if (!string.IsNullOrEmpty(name))
+                            {
+                                // Wrap in backticks for markdown code styling
+                                sb.Append($"`{name}`");
+                            }
                             break;
                         case "see":
                         case "seealso":
                             var cref = (string)element.Attribute("cref") ?? "";
-                            sb.Append(GetTypeNameFromCref(cref));
+                            var typeName = GetTypeNameFromCref(cref);
+                            if (!string.IsNullOrEmpty(typeName))
+                            {
+                                // Wrap in backticks for markdown code styling
+                                sb.Append($"`{typeName}`");
+                            }
+                            break;
+                        case "c":
+                            // Inline code - wrap in backticks for markdown code styling
+                            var code = element.Value;
+                            if (!string.IsNullOrEmpty(code))
+                            {
+                                sb.Append($"`{code}`");
+                            }
                             break;
                         default:
                             // Recursively extract text from child elements
