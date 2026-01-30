@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommentsVS.Services;
-using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 
 namespace CommentsVS.Adornments
@@ -77,14 +75,14 @@ namespace CommentsVS.Adornments
                             if (currentLine < block.StartLine || currentLine > block.EndLine)
                             {
                                 _visibilityManager.ShowComment(hiddenLine);
-                                            shouldRefresh = true;
-                                        }
-                                    }
-                                }
+                                shouldRefresh = true;
+                            }
+                        }
+                    }
 
-                                // Check if we moved away from a recently edited comment - clear edit tracking
-                                if (_visibilityManager.HasAnyRecentlyEditedLines)
-                                {
+                    // Check if we moved away from a recently edited comment - clear edit tracking
+                    if (_visibilityManager.HasAnyRecentlyEditedLines)
+                    {
                         // Find which comment block (if any) we moved away from
                         foreach (XmlDocCommentBlock block in blocks)
                         {

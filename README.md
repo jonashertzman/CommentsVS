@@ -458,10 +458,14 @@ Tag colors can be customized via **Tools > Options > Environment > Fonts and Col
 4. **Try reflow** – Edit a comment and use **Format Document** (Ctrl+K, Ctrl+D) to see automatic formatting
 5. **Try collapsing** – Press **Ctrl+M, Ctrl+C** to collapse all comments and focus on code
 
-## Requirements
+## Feature Requests Addressed
 
-- Visual Studio 2022 (17.0 or later)
-- Supports both x64 and ARM64 architectures
+This extension implements functionality requested by users on the Visual Studio Developer Community:
+
+- [Option to highlight TODO comments in the editor](https://developercommunity.visualstudio.com/t/Option-to-highlight-TODO-comments-in-the/1231593) - Scrollbar markers and color-coded TODO highlighting
+- [Different types of comments](https://developercommunity.visualstudio.com/t/Different-types-of-comments/10453774) - Prefix-based comment highlighting (Better Comments style)
+- [Color the TODO comment so it is different](https://developercommunity.visualstudio.com/t/Color-the-TODO-comment-so-it-is-differe/10375426) - Customizable color-coded comment tags
+- [Enable links in comments that are relative](https://developercommunity.visualstudio.com/t/Enalble-links-in-comments-that-are-relat/859567) - Link anchors with relative path support
 
 ## How can I help?
 
