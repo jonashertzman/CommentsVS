@@ -466,6 +466,8 @@ This extension implements functionality requested by users on the Visual Studio 
 - [Different types of comments](https://developercommunity.visualstudio.com/t/Different-types-of-comments/10453774) - Prefix-based comment highlighting (Better Comments style)
 - [Color the TODO comment so it is different](https://developercommunity.visualstudio.com/t/Color-the-TODO-comment-so-it-is-differe/10375426) - Customizable color-coded comment tags
 - [Enable links in comments that are relative](https://developercommunity.visualstudio.com/t/Enalble-links-in-comments-that-are-relat/859567) - Link anchors with relative path support
+- [Support for showing rendered documentation comments](https://developercommunity.visualstudio.com/t/Support-for-showing-rendered-documentati/10247122) - Rendered XML doc comments (Compact and Full modes)
+- [Support TODO comments in Visual Studio](https://developercommunity.visualstudio.com/t/Support-TODO-comments-in-Visual-Studio-D/1150894) - Code Anchors tool window with solution-wide scanning
 
 ## How can I help?
 
