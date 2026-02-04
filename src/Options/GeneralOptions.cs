@@ -336,17 +336,6 @@ namespace CommentsVS.Options
         }
 
         /// <summary>
-        /// Creates a CommentReflowEngine configured with the current options.
-        /// </summary>
-        public CommentReflowEngine CreateReflowEngine()
-        {
-            return new CommentReflowEngine(
-                MaxLineLength,
-                UseCompactStyleForShortSummaries,
-                PreserveBlankLines);
-        }
-
-        /// <summary>
         /// Tracks the number of successful usages for rating prompts.
         /// </summary>
         [Browsable(false)]

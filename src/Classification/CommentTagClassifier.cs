@@ -1,5 +1,5 @@
-using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using CommentsVS.Options;
 using CommentsVS.Services;
 using Microsoft.VisualStudio.Text;
@@ -14,6 +14,10 @@ namespace CommentsVS.Classification
     {
         private readonly ITextBuffer _buffer;
         private readonly IClassificationTypeRegistryService _registry;
+        private readonly IReadOnlyList<string> _anchorTags;
+        private readonly HashSet<string> _customTags;
+        private readonly Regex _anchorRegex;
+        private readonly Regex _metadataRegex;
 
         private readonly IClassificationType _metadataType;
         private bool _disposed;
@@ -26,6 +30,13 @@ namespace CommentsVS.Classification
             _registry = registry;
             _metadataType = _registry.GetClassificationType(CommentTagClassificationTypes.Metadata);
             _buffer.Changed += OnBufferChanged;
+
+            // Get file path and cache anchor tags/regex for this file (from .editorconfig or Options)
+            string filePath = buffer.GetFileName();
+            _anchorTags = EditorConfigSettings.GetAllAnchorTags(filePath);
+            _customTags = EditorConfigSettings.GetCustomAnchorTags(filePath);
+            _anchorRegex = EditorConfigSettings.GetAnchorClassificationRegex(filePath);
+            _metadataRegex = EditorConfigSettings.GetAnchorWithMetadataRegex(filePath);
         }
 
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
@@ -57,7 +68,7 @@ namespace CommentsVS.Classification
 
             // Fast pre-check: skip regex if no anchor keywords are present (case-insensitive)
             var hasAnyAnchor = false;
-            foreach (var keyword in Constants.GetAllAnchorKeywords())
+            foreach (var keyword in _anchorTags)
             {
                 if (text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
@@ -72,9 +83,9 @@ namespace CommentsVS.Classification
 
             var lineStart = span.Start.Position;
 
-            foreach (System.Text.RegularExpressions.Match match in CommentPatterns.AnchorClassificationRegex.Matches(text))
+            foreach (Match match in _anchorRegex.Matches(text))
             {
-                System.Text.RegularExpressions.Group tagGroup = match.Groups["tag"];
+                Group tagGroup = match.Groups["tag"];
                 if (!tagGroup.Success)
                 {
                     continue;
@@ -93,10 +104,10 @@ namespace CommentsVS.Classification
                 {
                     // Classify the optional metadata right after the anchor.
                     // Examples: TODO(@mads): ...  TODO[#123]: ...  ANCHOR(section-name): ...
-                    System.Text.RegularExpressions.Match metaMatch = CommentPatterns.AnchorWithMetadataRegex.Match(text, tagGroup.Index);
+                    Match metaMatch = _metadataRegex.Match(text, tagGroup.Index);
                     if (metaMatch.Success && metaMatch.Index == tagGroup.Index)
                     {
-                        System.Text.RegularExpressions.Group metaGroup = metaMatch.Groups["metadata"];
+                        Group metaGroup = metaMatch.Groups["metadata"];
                         if (metaGroup.Success && metaGroup.Length > 0)
                         {
                             var metaSpan = new SnapshotSpan(span.Snapshot, lineStart + metaGroup.Index, metaGroup.Length);
@@ -129,8 +140,8 @@ namespace CommentsVS.Classification
                 return _registry.GetClassificationType(typeName);
             }
 
-            // Check if it's a custom tag
-            if (General.Instance.GetCustomTagsSet().Contains(tag))
+            // Check if it's a custom tag (from .editorconfig or Options page)
+            if (_customTags.Contains(tag))
             {
                 return _registry.GetClassificationType(CommentTagClassificationTypes.Custom);
             }

@@ -1,0 +1,12 @@
+{
+  "properties": [
+    {
+      "name": "custom_anchor_tags",
+      "description": "Comma-separated list of custom comment tags to highlight (e.g., PERF, SECURITY, DEBT). These are recognized in addition to built-in tags like TODO, HACK, NOTE, BUG, FIXME, UNDONE, REVIEW.",
+      "severity": false,
+      "values": [ ], 
+      "defaultValue": [ "" ],
+      "documentationLink": "https://github.com/madskristensen/CommentsVS"
+    }
+  ]
+}

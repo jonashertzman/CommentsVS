@@ -450,6 +450,25 @@ Tag colors can be customized via **Tools > Options > Environment > Fonts and Col
 | ------------------ | ------- | ---------------------------------------------- |
 | Enable Issue Links | On      | Make #123 references clickable links to issues |
 
+### .editorconfig Support
+
+Comment Studio respects `.editorconfig` files for per-project or per-folder configuration. The following properties can be set in your `.editorconfig` to override the global Options page settings:
+
+| Property             | Description                                                                       |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `max_line_length`    | Standard EditorConfig property. Sets the maximum line length for comment reflow.  |
+| `custom_anchor_tags` | Comma-separated list of custom anchor tags to highlight (e.g., `PERF, SECURITY`). |
+
+Example `.editorconfig`:
+
+```ini
+[*.cs]
+max_line_length = 100
+custom_anchor_tags = PERF, SECURITY, DEBT, REFACTOR
+```
+
+**Note:** `.editorconfig` values take precedence over the global settings in **Tools > Options > CommentsVS**. This allows different projects to have different settings without changing your global preferences.
+
 ## Getting Started
 
 1. Install the extension from the Visual Studio Marketplace

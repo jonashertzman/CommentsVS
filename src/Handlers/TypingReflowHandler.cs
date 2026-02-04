@@ -148,8 +148,10 @@ namespace CommentsVS.Handlers
                 }
 
                 // Check if current line exceeds max length (quick check before parsing)
+                // Use .editorconfig value if defined, otherwise fall back to Options page
                 ITextSnapshotLine line = snapshot.GetLineFromPosition(position);
-                if (line.Length <= options.MaxLineLength)
+                var maxLineLength = EditorConfigSettings.GetMaxLineLength(_textView);
+                if (line.Length <= maxLineLength)
                 {
                     return;
                 }
@@ -173,8 +175,8 @@ namespace CommentsVS.Handlers
                     return;
                 }
 
-                // Perform reflow
-                CommentReflowEngine engine = options.CreateReflowEngine();
+                // Perform reflow using .editorconfig-aware settings
+                CommentReflowEngine engine = EditorConfigSettings.CreateReflowEngine(_textView);
                 var reflowed = engine.ReflowComment(block);
 
                 if (string.IsNullOrEmpty(reflowed))

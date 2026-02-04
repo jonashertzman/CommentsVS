@@ -45,6 +45,9 @@ namespace CommentsVS
             VS.Events.SolutionEvents.OnAfterOpenSolution += OnSolutionOpened;
             VS.Events.SolutionEvents.OnAfterCloseSolution += OnSolutionClosed;
 
+            // Subscribe to options changes to clear caches
+            General.Saved += OnOptionsSaved;
+
             // Register the scope filter combo box command
             if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commandService)
             {
@@ -57,30 +60,38 @@ namespace CommentsVS
             {
                 _ratingPrompt.RegisterSuccessfulUsage();
             }
-        }
+                }
 
-        private void OnSolutionOpened(Solution solution = null)
-        {
-            _ratingPrompt.RegisterSuccessfulUsage();
-        }
+                private void OnSolutionOpened(Solution solution = null)
+                {
+                    _ratingPrompt.RegisterSuccessfulUsage();
+                }
 
-        private void OnSolutionClosed()
-        {
-            // Clear the Git repository cache to prevent stale data
-            // when the user opens a different solution or changes Git remotes
-            GitRepositoryService.ClearCache();
-        }
+                private void OnSolutionClosed()
+                {
+                    // Clear the Git repository cache to prevent stale data
+                    // when the user opens a different solution or changes Git remotes
+                    GitRepositoryService.ClearCache();
+                    EditorConfigSettings.ClearCaches();
+                }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                // Unsubscribe from solution events
-                VS.Events.SolutionEvents.OnAfterOpenSolution -= OnSolutionOpened;
-                VS.Events.SolutionEvents.OnAfterCloseSolution -= OnSolutionClosed;
+                private void OnOptionsSaved(General options)
+                {
+                    // Clear EditorConfig caches when custom tags or other settings change
+                    EditorConfigSettings.ClearCaches();
+                }
+
+                protected override void Dispose(bool disposing)
+                {
+                    if (disposing)
+                    {
+                        // Unsubscribe from solution events
+                        VS.Events.SolutionEvents.OnAfterOpenSolution -= OnSolutionOpened;
+                        VS.Events.SolutionEvents.OnAfterCloseSolution -= OnSolutionClosed;
+                        General.Saved -= OnOptionsSaved;
+                    }
+
+                    base.Dispose(disposing);
+                }
             }
-
-            base.Dispose(disposing);
         }
-    }
-}

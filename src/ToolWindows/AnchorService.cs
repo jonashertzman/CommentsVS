@@ -43,9 +43,13 @@ namespace CommentsVS.ToolWindows
             ITextSnapshot snapshot = buffer.CurrentSnapshot;
             var fullText = snapshot.GetText();
 
+            // Get all anchor tags and regex for this file (built-in + custom from .editorconfig/Options)
+            IReadOnlyList<string> anchorTags = EditorConfigSettings.GetAllAnchorTags(filePath);
+            Regex anchorRegex = EditorConfigSettings.GetAnchorServiceRegex(filePath);
+
             // Fast pre-check: skip if no anchor keywords are present
             var hasAnyAnchor = false;
-            foreach (var keyword in Constants.GetAllAnchorKeywords())
+            foreach (var keyword in anchorTags)
             {
                 if (fullText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
@@ -67,7 +71,7 @@ namespace CommentsVS.ToolWindows
 
                 // Fast pre-check for this line
                 var lineHasAnchor = false;
-                foreach (var keyword in Constants.GetAllAnchorKeywords())
+                foreach (var keyword in anchorTags)
                 {
                     if (lineText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
@@ -81,7 +85,7 @@ namespace CommentsVS.ToolWindows
                     continue;
                 }
 
-                foreach (Match match in CommentPatterns.AnchorServiceRegex.Matches(lineText))
+                foreach (Match match in anchorRegex.Matches(lineText))
                 {
                     Group tagGroup = match.Groups["tag"];
                     if (!tagGroup.Success)
@@ -89,7 +93,7 @@ namespace CommentsVS.ToolWindows
                         continue;
                     }
 
-                    AnchorType? anchorType = AnchorTypeExtensions.ParseWithCustom(tagGroup.Value, out var customTagName);
+                    AnchorType? anchorType = AnchorTypeExtensions.ParseWithCustom(tagGroup.Value, filePath, out var customTagName);
                     if (anchorType == null)
                     {
                         continue;
@@ -154,9 +158,13 @@ namespace CommentsVS.ToolWindows
                 return anchors;
             }
 
+            // Get all anchor tags and regex for this file (built-in + custom from .editorconfig/Options)
+            IReadOnlyList<string> anchorTags = EditorConfigSettings.GetAllAnchorTags(filePath);
+            Regex anchorRegex = EditorConfigSettings.GetAnchorServiceRegex(filePath);
+
             // Fast pre-check: skip if no anchor keywords are present
             var hasAnyAnchor = false;
-            foreach (var keyword in Constants.GetAllAnchorKeywords())
+            foreach (var keyword in anchorTags)
             {
                 if (text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
@@ -178,7 +186,7 @@ namespace CommentsVS.ToolWindows
 
                 // Fast pre-check for this line
                 var lineHasAnchor = false;
-                foreach (var keyword in Constants.GetAllAnchorKeywords())
+                foreach (var keyword in anchorTags)
                 {
                     if (lineText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
@@ -192,7 +200,7 @@ namespace CommentsVS.ToolWindows
                     continue;
                 }
 
-                foreach (Match match in CommentPatterns.AnchorServiceRegex.Matches(lineText))
+                foreach (Match match in anchorRegex.Matches(lineText))
                 {
                     Group tagGroup = match.Groups["tag"];
                     if (!tagGroup.Success)
@@ -200,7 +208,7 @@ namespace CommentsVS.ToolWindows
                         continue;
                     }
 
-                    AnchorType? anchorType = AnchorTypeExtensions.ParseWithCustom(tagGroup.Value, out var customTagName);
+                    AnchorType? anchorType = AnchorTypeExtensions.ParseWithCustom(tagGroup.Value, filePath, out var customTagName);
                     if (anchorType == null)
                     {
                         continue;

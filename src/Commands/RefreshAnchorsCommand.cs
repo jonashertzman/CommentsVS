@@ -1,3 +1,4 @@
+using CommentsVS.Services;
 using CommentsVS.ToolWindows;
 
 namespace CommentsVS.Commands
@@ -10,6 +11,9 @@ namespace CommentsVS.Commands
     {
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
+            // Clear .editorconfig caches so any changes are picked up on refresh
+            EditorConfigSettings.ClearCaches();
+
             CodeAnchorsToolWindow toolWindow = await CodeAnchorsToolWindow.GetInstanceAsync();
             if (toolWindow != null)
             {

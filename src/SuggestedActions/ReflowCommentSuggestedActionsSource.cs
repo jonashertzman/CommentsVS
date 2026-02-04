@@ -109,9 +109,8 @@ namespace CommentsVS.SuggestedActions
         /// </summary>
         private bool WouldReflowChangeAnything(XmlDocCommentBlock block)
         {
-            // Get the current settings
-            General options = General.Instance;
-            var maxLineLength = options.MaxLineLength;
+            // Get the current settings - .editorconfig overrides Options page
+            var maxLineLength = EditorConfigSettings.GetMaxLineLength(textView);
 
             // Check if any line exceeds the threshold
             ITextSnapshot snapshot = textBuffer.CurrentSnapshot;
@@ -126,7 +125,7 @@ namespace CommentsVS.SuggestedActions
 
             // Also check if reflow would produce different output
             // (e.g., compact style conversion, multi-line to single-line, etc.)
-            CommentReflowEngine engine = options.CreateReflowEngine();
+            CommentReflowEngine engine = EditorConfigSettings.CreateReflowEngine(textView);
             var reflowed = engine.ReflowComment(block);
 
             if (reflowed == null)

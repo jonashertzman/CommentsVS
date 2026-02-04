@@ -42,10 +42,9 @@ namespace CommentsVS.SuggestedActions
 
         public Task<object> GetPreviewAsync(CancellationToken cancellationToken)
         {
-            return Task.Run<object>(async () =>
+            return Task.Run<object>(() =>
             {
-                General options = await General.GetLiveInstanceAsync();
-                CommentReflowEngine engine = options.CreateReflowEngine();
+                CommentReflowEngine engine = EditorConfigSettings.CreateReflowEngine(textView);
 
                 var reflowed = engine.ReflowComment(commentBlock);
 
@@ -92,13 +91,12 @@ namespace CommentsVS.SuggestedActions
                     catch
                     {
                         // Ignore errors when expanding regions
+                        }
                     }
-                }
 
-                General options = await General.GetLiveInstanceAsync();
-                CommentReflowEngine engine = options.CreateReflowEngine();
+                    CommentReflowEngine engine = EditorConfigSettings.CreateReflowEngine(textView);
 
-                var reflowed = engine.ReflowComment(commentBlock);
+                    var reflowed = engine.ReflowComment(commentBlock);
 
                 if (!string.IsNullOrEmpty(reflowed))
                 {

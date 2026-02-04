@@ -1,5 +1,6 @@
 using System.Windows.Media;
 using CommentsVS.Options;
+using CommentsVS.Services;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
 
@@ -112,50 +113,51 @@ namespace CommentsVS.ToolWindows
             };
         }
 
-        /// <summary>
-        /// Parses a string to an <see cref="AnchorType"/>, including custom tags.
-        /// </summary>
-        /// <param name="value">The string value (case-insensitive).</param>
-        /// <param name="customTagName">If the tag is a custom tag, outputs the tag name in uppercase.</param>
-        /// <returns>The parsed anchor type, or null if not recognized.</returns>
-        public static AnchorType? ParseWithCustom(string value, out string customTagName)
-        {
-            customTagName = null;
+                /// <summary>
+                /// Parses a string to an <see cref="AnchorType"/>, including custom tags.
+                /// </summary>
+                /// <param name="value">The string value (case-insensitive).</param>
+                /// <param name="filePath">The file path for .editorconfig lookup.</param>
+                /// <param name="customTagName">If the tag is a custom tag, outputs the tag name in uppercase.</param>
+                /// <returns>The parsed anchor type, or null if not recognized.</returns>
+                public static AnchorType? ParseWithCustom(string value, string filePath, out string customTagName)
+                {
+                    customTagName = null;
 
-            if (string.IsNullOrEmpty(value))
-            {
-                return null;
+                    if (string.IsNullOrEmpty(value))
+                    {
+                        return null;
+                    }
+
+                    var upperValue = value.ToUpperInvariant();
+
+                    // Check built-in tags first
+                    AnchorType? builtInType = upperValue switch
+                    {
+                        "TODO" => AnchorType.Todo,
+                        "HACK" => AnchorType.Hack,
+                        "NOTE" => AnchorType.Note,
+                        "BUG" => AnchorType.Bug,
+                        "FIXME" => AnchorType.Fixme,
+                        "UNDONE" => AnchorType.Undone,
+                        "REVIEW" => AnchorType.Review,
+                        "ANCHOR" => AnchorType.Anchor,
+                        _ => null
+                    };
+
+                    if (builtInType != null)
+                    {
+                        return builtInType;
+                    }
+
+                    // Check if it's a custom tag (from .editorconfig or Options page)
+                    if (EditorConfigSettings.GetCustomAnchorTags(filePath).Contains(upperValue))
+                    {
+                        customTagName = upperValue;
+                        return AnchorType.Custom;
+                    }
+
+                    return null;
+                }
             }
-
-            var upperValue = value.ToUpperInvariant();
-
-            // Check built-in tags first
-            AnchorType? builtInType = upperValue switch
-            {
-                "TODO" => AnchorType.Todo,
-                "HACK" => AnchorType.Hack,
-                "NOTE" => AnchorType.Note,
-                "BUG" => AnchorType.Bug,
-                "FIXME" => AnchorType.Fixme,
-                "UNDONE" => AnchorType.Undone,
-                "REVIEW" => AnchorType.Review,
-                "ANCHOR" => AnchorType.Anchor,
-                _ => null
-            };
-
-            if (builtInType != null)
-            {
-                return builtInType;
-            }
-
-            // Check if it's a custom tag
-            if (General.Instance.GetCustomTagsSet().Contains(upperValue))
-            {
-                customTagName = upperValue;
-                return AnchorType.Custom;
-            }
-
-            return null;
         }
-    }
-}

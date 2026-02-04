@@ -1,6 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
+using System.Text.RegularExpressions;
 using CommentsVS.Classification;
 using CommentsVS.Options;
 using CommentsVS.Services;
@@ -39,6 +39,9 @@ namespace CommentsVS.Tagging
     internal sealed class CommentTagOverviewTagger : ITagger<OverviewMarkTag>, IDisposable
     {
         private readonly ITextBuffer _buffer;
+        private readonly IReadOnlyList<string> _anchorTags;
+        private readonly HashSet<string> _customTags;
+        private readonly Regex _anchorRegex;
         private bool _disposed;
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
@@ -47,6 +50,12 @@ namespace CommentsVS.Tagging
         {
             _buffer = buffer;
             _buffer.Changed += OnBufferChanged;
+
+            // Get file path and cache anchor tags/regex for this file (from .editorconfig or Options)
+            string filePath = buffer.GetFileName();
+            _anchorTags = EditorConfigSettings.GetAllAnchorTags(filePath);
+            _customTags = EditorConfigSettings.GetCustomAnchorTags(filePath);
+            _anchorRegex = EditorConfigSettings.GetAnchorClassificationRegex(filePath);
         }
 
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
@@ -57,8 +66,8 @@ namespace CommentsVS.Tagging
                 ITextSnapshotLine startLine = e.After.GetLineFromPosition(change.NewPosition);
                 ITextSnapshotLine endLine = e.After.GetLineFromPosition(change.NewEnd);
 
-                int start = startLine.Start.Position;
-                int length = endLine.End.Position - start;
+                var start = startLine.Start.Position;
+                var length = endLine.End.Position - start;
 
                 TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
                     new SnapshotSpan(e.After, start, length)));
@@ -94,11 +103,11 @@ namespace CommentsVS.Tagging
 
             foreach (SnapshotSpan span in spans)
             {
-                string text = span.GetText();
+                var text = span.GetText();
 
                 // Fast pre-check: skip regex if no anchor keywords are present
-                bool hasAnyAnchor = false;
-                foreach (string keyword in Constants.GetAllAnchorKeywords())
+                var hasAnyAnchor = false;
+                foreach (var keyword in _anchorTags)
                 {
                     if (text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
@@ -112,18 +121,18 @@ namespace CommentsVS.Tagging
                     continue;
                 }
 
-                int lineStart = span.Start.Position;
+                var lineStart = span.Start.Position;
 
-                foreach (System.Text.RegularExpressions.Match match in CommentPatterns.AnchorClassificationRegex.Matches(text))
+                foreach (Match match in _anchorRegex.Matches(text))
                 {
-                    System.Text.RegularExpressions.Group tagGroup = match.Groups["tag"];
+                    Group tagGroup = match.Groups["tag"];
                     if (!tagGroup.Success)
                     {
                         continue;
                     }
 
-                    string tag = tagGroup.Value.TrimEnd(':').ToUpperInvariant();
-                    string formatName = GetOverviewMarkFormatName(tag);
+                    var tag = tagGroup.Value.TrimEnd(':').ToUpperInvariant();
+                    var formatName = GetOverviewMarkFormatName(tag);
 
                     if (formatName == null)
                     {
@@ -140,7 +149,7 @@ namespace CommentsVS.Tagging
         /// <summary>
         /// Gets the overview mark format name for a given tag keyword.
         /// </summary>
-        private static string GetOverviewMarkFormatName(string tag)
+        private string GetOverviewMarkFormatName(string tag)
         {
             return tag switch
             {
@@ -156,10 +165,10 @@ namespace CommentsVS.Tagging
             };
         }
 
-        private static string CheckCustomTag(string tag)
+        private string CheckCustomTag(string tag)
         {
-            // Check if it's a custom tag
-            if (General.Instance.GetCustomTagsSet().Contains(tag))
+            // Check if it's a custom tag (from .editorconfig or Options page)
+            if (_customTags.Contains(tag))
             {
                 return OverviewMarkFormatNames.Custom;
             }

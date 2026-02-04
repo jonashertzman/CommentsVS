@@ -54,7 +54,7 @@ namespace CommentsVS.Handlers
 
                 try
                 {
-                    ReflowComments(buffer, textView, commentStyle, General.Instance, formatSelection);
+                    ReflowComments(buffer, textView, commentStyle, formatSelection);
                 }
                 catch (Exception ex)
                 {
@@ -69,12 +69,11 @@ namespace CommentsVS.Handlers
             ITextBuffer buffer,
             ITextView textView,
             LanguageCommentStyle commentStyle,
-            General options,
             bool selectionOnly)
         {
             ITextSnapshot snapshot = buffer.CurrentSnapshot;
             var parser = new XmlDocCommentParser(commentStyle);
-            CommentReflowEngine engine = options.CreateReflowEngine();
+            CommentReflowEngine engine = EditorConfigSettings.CreateReflowEngine(textView);
 
             System.Collections.Generic.IReadOnlyList<XmlDocCommentBlock> blocks;
 

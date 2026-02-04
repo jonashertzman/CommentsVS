@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CommentsVS.Services;
 
 namespace CommentsVS.ToolWindows
 {
@@ -35,6 +36,12 @@ namespace CommentsVS.ToolWindows
 
         private void OnDocumentSaved(string filePath)
         {
+            // Clear .editorconfig caches when a .editorconfig file is saved
+            if (System.IO.Path.GetFileName(filePath).Equals(".editorconfig", StringComparison.OrdinalIgnoreCase))
+            {
+                EditorConfigSettings.ClearCaches();
+            }
+
             // Rescan the saved file and update the cache
             if (_cache != null && _scanner != null)
             {

@@ -60,7 +60,7 @@ namespace CommentsVS.Handlers
                 ThreadHelper.JoinableTaskFactory.Run(async () =>
                 {
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                    await ReflowCommentAfterPasteAsync(textView, textBuffer, caretPositionBeforePaste, blockBeforePaste);
+                    await ReflowCommentAfterPasteAsync(textView, textBuffer, caretPositionBeforePaste);
                 });
             }
 
@@ -77,11 +77,10 @@ namespace CommentsVS.Handlers
         /// <summary>
         /// Reflows the comment block after paste has completed.
         /// </summary>
-        private static async System.Threading.Tasks.Task ReflowCommentAfterPasteAsync(
+        private static async Task ReflowCommentAfterPasteAsync(
             ITextView textView,
             ITextBuffer textBuffer,
-            int originalCaretPosition,
-            XmlDocCommentBlock originalBlock)
+            int originalCaretPosition)
         {
             General options = await General.GetLiveInstanceAsync();
             if (!options.ReflowOnPaste)
@@ -104,18 +103,15 @@ namespace CommentsVS.Handlers
             var newCaretPosition = textView.Caret.Position.BufferPosition.Position;
             XmlDocCommentBlock block = parser.FindCommentBlockAtPosition(snapshot, newCaretPosition);
 
-            if (block == null)
-            {
-                // Try original position adjusted for paste
-                block = parser.FindCommentBlockAtPosition(snapshot, originalCaretPosition);
-            }
+            // Try original position adjusted for paste
+            block ??= parser.FindCommentBlockAtPosition(snapshot, originalCaretPosition);
 
             if (block == null)
             {
                 return;
             }
 
-            CommentReflowEngine engine = options.CreateReflowEngine();
+            CommentReflowEngine engine = EditorConfigSettings.CreateReflowEngine(textView);
 
             var reflowed = engine.ReflowComment(block);
 
