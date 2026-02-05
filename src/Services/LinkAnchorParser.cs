@@ -95,8 +95,7 @@ namespace CommentsVS.Services
     public static class LinkAnchorParser
     {
         /// <summary>
-        /// Regex pattern to match LINK syntax in comments.
-        /// Captures: keyword, optional path, optional line/range, optional anchor.
+        /// Core regex pattern for LINK syntax (without prefix).
         /// </summary>
         /// <remarks>
         /// Pattern breakdown:
@@ -110,14 +109,54 @@ namespace CommentsVS.Services
         /// File paths can contain spaces (e.g., "images/Add group calendar.png")
         /// Trailing whitespace is trimmed from paths in code.
         /// </remarks>
-        private static readonly Regex _linkRegex = new(
-            @"(?<prefix>(?:\bLINK\s*:?\s*|\blink:\s*))(?:(?<localanchor>#[A-Za-z0-9_-]+)|(?<path>(?:[./\\@~])?(?:[^\r\n#:]|:(?!\d))+?)(?::(?<line>\d+)(?:-(?<endline>\d+))?)?(?:#(?<fileanchor>[A-Za-z0-9_-]+))?(?=\s*(?:\bLINK\b|\blink:|$|\r|\n)))",
-            RegexOptions.Compiled);
+        private const string _linkCorePattern =
+            @"(?<prefix>(?:\bLINK\s*:?\s*|\blink:\s*))(?:(?<localanchor>#[A-Za-z0-9_-]+)|(?<path>(?:[./\\@~])?(?:[^\r\n#:]|:(?!\d))+?)(?::(?<line>\d+)(?:-(?<endline>\d+))?)?(?:#(?<fileanchor>[A-Za-z0-9_-]+))?(?=\s*(?:\bLINK\b|\blink:|$|\r|\n)))";
+
+        /// <summary>
+        /// Default compiled regex (no tag prefixes).
+        /// </summary>
+        private static readonly Regex _defaultLinkRegex = new(_linkCorePattern, RegexOptions.Compiled);
+
+        /// <summary>
+        /// Cached regex for the current tag prefix setting.
+        /// </summary>
+        private static Regex _cachedPrefixRegex;
+        private static string _cachedPrefixPattern;
+
+        /// <summary>
+        /// Optional delegate that returns the current tag prefix pattern (e.g., "[@$]").
+        /// Set by the extension package at startup. When null, no prefixes are supported.
+        /// This avoids a hard dependency on the Options namespace for shared/benchmark projects.
+        /// </summary>
+        public static Func<string> GetTagPrefixPattern { get; set; }
 
         /// <summary>
         /// Cached empty result list to avoid allocations for the common "no links" case.
         /// </summary>
         private static readonly IReadOnlyList<LinkAnchorInfo> _emptyResult = [];
+
+        /// <summary>
+        /// Gets the compiled LINK regex, incorporating any configured tag prefixes.
+        /// </summary>
+        private static Regex GetLinkRegex()
+        {
+            var prefixPattern = GetTagPrefixPattern?.Invoke();
+            if (prefixPattern == null)
+            {
+                return _defaultLinkRegex;
+            }
+
+            if (_cachedPrefixRegex != null && _cachedPrefixPattern == prefixPattern)
+            {
+                return _cachedPrefixRegex;
+            }
+
+            // Prepend optional prefix before the LINK keyword
+            var pattern = @"(?:" + prefixPattern + @")?\s*" + _linkCorePattern;
+            _cachedPrefixRegex = new Regex(pattern, RegexOptions.Compiled);
+            _cachedPrefixPattern = prefixPattern;
+            return _cachedPrefixRegex;
+        }
 
         /// <summary>
         /// Parses all LINK references in the given text.
@@ -143,7 +182,7 @@ namespace CommentsVS.Services
 
             var results = new List<LinkAnchorInfo>();
 
-            foreach (Match match in _linkRegex.Matches(text))
+            foreach (Match match in GetLinkRegex().Matches(text))
             {
                 // Calculate target position (excludes "LINK:" prefix)
                 Group prefixGroup = match.Groups["prefix"];
@@ -225,7 +264,7 @@ namespace CommentsVS.Services
             var hasUppercaseLink = text.IndexOf("LINK", StringComparison.Ordinal) >= 0;
             var hasLowercaseLink = text.IndexOf("link:", StringComparison.Ordinal) >= 0;
 
-            return (hasUppercaseLink || hasLowercaseLink) && _linkRegex.IsMatch(text);
+            return (hasUppercaseLink || hasLowercaseLink) && GetLinkRegex().IsMatch(text);
         }
 
         /// <summary>

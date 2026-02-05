@@ -191,6 +191,8 @@ PERF, SECURITY, DEBT, REFACTOR, WIP, DEPRECATED
 
 Custom tags are highlighted in **Goldenrod** and appear in the Code Anchors tool window alongside built-in tags. All custom tags share a single color, which can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment Tag - Custom".
 
+Hover over any custom tag to see a QuickInfo tooltip identifying it as a custom anchor with a link to the Code Anchors window.
+
 Example usage:
 
 ```csharp
@@ -198,6 +200,23 @@ Example usage:
 // SECURITY: Validate user input before processing
 // DEBT: Extract this into a separate service
 ```
+
+#### Tag Prefixes
+
+Some developers prefix their comment tags with a character like `@` or `$` to make them easier to search for (e.g., `// @TODO` instead of `// TODO`). Comment Studio recognizes these prefixes and treats them as equivalent to the unprefixed tag.
+
+Configure prefixes in **Tools > Options > CommentsVS > Comment Tags > Tag prefixes** as a comma-separated list of single characters. The default is `@, $`.
+
+Example:
+
+```csharp
+// @TODO: This is treated the same as // TODO
+// $HACK: This works too
+```
+
+- **Classification** — The prefix character is highlighted with the same color as the tag
+- **Code Anchors** — Prefixes are stripped from display, so `@TODO` appears as `TODO`
+- **LINK support** — Prefixes also work with `LINK:` syntax (e.g., `// @LINK: file.cs`)
 
 Colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment Tag - [TAG]" entries.
 
@@ -431,6 +450,7 @@ Rendered comment colors can be customized via **Tools > Options > Environment > 
 | Enable Comment Tag Highlighting | On      | Enable/disable tag highlighting                                               |
 | Enable Prefix Highlighting      | On      | Enable/disable prefix-based comment highlighting (Better Comments style)      |
 | Custom Tags                     | (empty) | Comma-separated list of custom tags to highlight (e.g., PERF, SECURITY, DEBT) |
+| Tag Prefixes                    | @, $    | Comma-separated list of optional prefix characters for comment tags           |
 
 Tag colors can be customized via **Tools > Options > Environment > Fonts and Colors** under "Comment Tag - [TAG]" entries. Custom tags share a single color under "Comment Tag - Custom". Prefix colors can be customized under "Comment - [Type]" entries.
 
@@ -458,6 +478,7 @@ Comment Studio respects `.editorconfig` files for per-project or per-folder conf
 | -------------------- | --------------------------------------------------------------------------------- |
 | `max_line_length`    | Standard EditorConfig property. Sets the maximum line length for comment reflow.  |
 | `custom_anchor_tags` | Comma-separated list of custom anchor tags to highlight (e.g., `PERF, SECURITY`). |
+| `custom_anchor_tag_prefixes` | Comma-separated list of optional prefix characters for comment tags (e.g., `@, $`). |
 
 Example `.editorconfig`:
 
@@ -465,6 +486,7 @@ Example `.editorconfig`:
 [*.cs]
 max_line_length = 100
 custom_anchor_tags = PERF, SECURITY, DEBT, REFACTOR
+custom_anchor_tag_prefixes = @, $
 ```
 
 **Note:** `.editorconfig` values take precedence over the global settings in **Tools > Options > CommentsVS**. This allows different projects to have different settings without changing your global preferences.

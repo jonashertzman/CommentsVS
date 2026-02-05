@@ -7,6 +7,14 @@
       "values": [ ], 
       "defaultValue": [ "" ],
       "documentationLink": "https://github.com/madskristensen/CommentsVS"
+    },
+    {
+      "name": "custom_anchor_tag_prefixes",
+      "description": "Comma-separated list of optional prefix characters for comment tags (e.g., @, $). When set, '// @TODO' is treated the same as '// TODO'. Prefixes are stripped from display in Code Anchors.",
+      "severity": false,
+      "values": [ ],
+      "defaultValue": [ "@, $" ],
+      "documentationLink": "https://github.com/madskristensen/CommentsVS"
     }
   ]
 }

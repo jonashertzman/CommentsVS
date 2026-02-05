@@ -36,6 +36,10 @@ namespace CommentsVS
             this.RegisterToolWindows();
             await FormatDocumentHandler.RegisterAsync();
 
+            // Wire up the tag prefix delegate so LinkAnchorParser can resolve prefixes
+            // without a hard dependency on the Options namespace (shared with benchmarks project)
+            LinkAnchorParser.GetTagPrefixPattern = () => General.Instance.GetTagPrefixPattern();
+
             _ratingPrompt = new RatingPrompt("MadsKristensen.CommentsVS", Vsix.Name, await General.GetLiveInstanceAsync(), 10);
 
             // Switch to main thread to register combo box command

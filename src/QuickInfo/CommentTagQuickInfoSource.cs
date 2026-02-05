@@ -79,8 +79,18 @@ namespace CommentsVS.QuickInfo
                 return null;
             }
 
-            // Find comment tags in the comment portion
-            foreach (System.Text.RegularExpressions.Match match in CommentPatterns.CommentTagRegex.Matches(commentText))
+            // Find comment tags in the comment portion (use dynamic pattern that includes custom tags)
+            // GetFileName() requires the UI thread
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            var filePath = textBuffer.GetFileName();
+            var keywordsPattern = EditorConfigSettings.GetAnchorKeywordsPattern(filePath);
+            var prefixFragment = EditorConfigSettings.GetTagPrefixPattern(filePath);
+            var pfx = prefixFragment != null ? "(?:" + prefixFragment + ")?\\s*" : "";
+            var tagRegex = new Regex(
+                pfx + @"\b(?<tag>" + keywordsPattern + @"|LINK)\b:?",
+                RegexOptions.IgnoreCase);
+
+            foreach (Match match in tagRegex.Matches(commentText))
             {
                 var matchStartInLine = commentStartInLine + match.Index;
                 var matchEndInLine = matchStartInLine + match.Length;
@@ -89,7 +99,7 @@ namespace CommentsVS.QuickInfo
                 if (positionInLine >= matchStartInLine && positionInLine <= matchEndInLine)
                 {
                     var tag = match.Groups["tag"].Value.ToUpperInvariant();
-                    (var title, var description) = GetTagDescription(tag);
+                    (var title, var description) = GetTagDescription(tag, filePath);
 
                     if (!string.IsNullOrEmpty(description))
                     {
@@ -110,7 +120,7 @@ namespace CommentsVS.QuickInfo
             return null;
         }
 
-        private static (string Title, string Description) GetTagDescription(string tag)
+        private static (string Title, string Description) GetTagDescription(string tag, string filePath)
         {
             return tag switch
             {
@@ -141,22 +151,35 @@ namespace CommentsVS.QuickInfo
                 "LINK" => ("LINK - File or anchor reference",
                            "Creates a clickable link to another file, line number, or named anchor. " +
                            "Ctrl+Click to navigate to the target location."),
-                _ => (null, null),
-                };
+                _ => GetCustomTagDescription(tag, filePath),
+            };
+        }
+
+        private static (string Title, string Description) GetCustomTagDescription(string tag, string filePath)
+        {
+            HashSet<string> customTags = EditorConfigSettings.GetCustomAnchorTags(filePath);
+            if (customTags.Contains(tag))
+            {
+                return ($"{tag} - Custom anchor",
+                        $"A custom comment tag for tracking items in your codebase. " +
+                        $"View all {tag} anchors in the Code Anchors tool window.");
             }
 
-            public void Dispose()
-            {
-            }
+            return (null, null);
+        }
 
-            private async Task<GitRepositoryInfo> GetRepoInfoAsync()
-            {
-                return await TextBufferHelper.GetRepositoryInfoAsync(textBuffer).ConfigureAwait(false);
-            }
+        public void Dispose()
+        {
+        }
 
-            private static ContainerElement CreateQuickInfoContent(string tag, string title, string description, IReadOnlyList<CommentTagMetadataItem> metadata, GitRepositoryInfo repoInfo)
-            {
-                const int MaxLineLength = 60;
+        private async Task<GitRepositoryInfo> GetRepoInfoAsync()
+        {
+            return await TextBufferHelper.GetRepositoryInfoAsync(textBuffer).ConfigureAwait(false);
+        }
+
+        private static ContainerElement CreateQuickInfoContent(string tag, string title, string description, IReadOnlyList<CommentTagMetadataItem> metadata, GitRepositoryInfo repoInfo)
+        {
+            const int MaxLineLength = 60;
 
             var elements = new List<object>
             {
@@ -333,11 +356,11 @@ namespace CommentsVS.QuickInfo
                 }
             }
 
-                    return items;
-                }
-            }
+            return items;
+        }
+    }
 
-            internal enum CommentTagMetadataKind
+    internal enum CommentTagMetadataKind
     {
         Owner,
         Issue,

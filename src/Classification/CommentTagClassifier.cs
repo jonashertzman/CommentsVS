@@ -25,7 +25,7 @@ namespace CommentsVS.Classification
         // Cached option value to avoid repeated singleton access in hot path
         private bool _enableHighlighting;
         private int _optionCheckCounter;
-        private const int OptionCheckInterval = 100; // Re-check option every N calls
+        private const int _optionCheckInterval = 100; // Re-check option every N calls
 
         public event EventHandler<ClassificationChangedEventArgs> ClassificationChanged;
 
@@ -37,7 +37,7 @@ namespace CommentsVS.Classification
             _buffer.Changed += OnBufferChanged;
 
             // Get file path and cache anchor tags/regex for this file (from .editorconfig or Options)
-            string filePath = buffer.GetFileName();
+            var filePath = buffer.GetFileName();
             _anchorTags = EditorConfigSettings.GetAllAnchorTags(filePath);
             _customTags = EditorConfigSettings.GetCustomAnchorTags(filePath);
             _anchorRegex = EditorConfigSettings.GetAnchorClassificationRegex(filePath);
@@ -62,7 +62,7 @@ namespace CommentsVS.Classification
             var result = new List<ClassificationSpan>();
 
             // Periodically refresh cached option value (avoids per-call singleton access)
-            if (++_optionCheckCounter >= OptionCheckInterval)
+            if (++_optionCheckCounter >= _optionCheckInterval)
             {
                 _optionCheckCounter = 0;
                 _enableHighlighting = General.Instance.EnableCommentTagHighlighting;
@@ -111,7 +111,11 @@ namespace CommentsVS.Classification
 
                 if (classificationType != null)
                 {
-                    var tagSpan = new SnapshotSpan(span.Snapshot, lineStart + tagGroup.Index, tagGroup.Length);
+                    // Extend span to include the optional tag prefix (e.g., @ in @TODO)
+                    Group pfxGroup = match.Groups["tagprefix"];
+                    var spanStart = pfxGroup.Success ? pfxGroup.Index : tagGroup.Index;
+                    var spanLength = (tagGroup.Index + tagGroup.Length) - spanStart;
+                    var tagSpan = new SnapshotSpan(span.Snapshot, lineStart + spanStart, spanLength);
                     result.Add(new ClassificationSpan(tagSpan, classificationType));
                 }
 

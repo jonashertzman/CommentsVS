@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using CommentsVS.Services;
 
 namespace CommentsVS.Options
@@ -123,6 +124,8 @@ namespace CommentsVS.Options
         private string _lastFoldersValue;
         private HashSet<string> _cachedCustomTags;
         private string _lastCustomTagsValue;
+        private string _cachedTagPrefixPattern;
+        private string _lastTagPrefixesValue;
 
         private const string _reflowCategory = "Comment Reflow";
 
@@ -189,6 +192,12 @@ namespace CommentsVS.Options
         [Description("Comma-separated list of custom comment tags to highlight. Example: PERF, SECURITY, DEBT, REFACTOR. All custom tags share the same color, customizable in Tools > Options > Environment > Fonts and Colors under 'Comment Tag - Custom'.")]
         [DefaultValue("")]
         public string CustomTags { get; set; } = "";
+
+        [Category(_tagsCategory)]
+        [DisplayName("Tag prefixes")]
+        [Description("Comma-separated list of optional prefix characters for comment tags. Example: @, $. When set, '// @TODO' is treated the same as '// TODO'. Prefixes are stripped from display in Code Anchors.")]
+        [DefaultValue("@, $")]
+        public string TagPrefixes { get; set; } = "@, $";
 
         [Category(_tagsCategory)]
         [DisplayName("Show scrollbar markers")]
@@ -333,6 +342,46 @@ namespace CommentsVS.Options
                 }
             }
             return tags;
+        }
+
+        /// <summary>
+        /// Gets a regex character class pattern for tag prefixes (e.g., "[@$]" for @, $).
+        /// Returns null if no prefixes are configured.
+        /// The result is cached and only recalculated when the setting changes.
+        /// </summary>
+        public string GetTagPrefixPattern()
+        {
+            if (_cachedTagPrefixPattern == null && string.IsNullOrEmpty(_lastTagPrefixesValue) || _lastTagPrefixesValue != TagPrefixes)
+            {
+                _lastTagPrefixesValue = TagPrefixes;
+                _cachedTagPrefixPattern = BuildPrefixPattern(TagPrefixes);
+            }
+            return _cachedTagPrefixPattern;
+        }
+
+        private static string BuildPrefixPattern(string tagPrefixes)
+        {
+            if (string.IsNullOrWhiteSpace(tagPrefixes))
+            {
+                return null;
+            }
+
+            var chars = new HashSet<char>();
+            foreach (var part in tagPrefixes.Split([','], StringSplitOptions.RemoveEmptyEntries))
+            {
+                var trimmed = part.Trim();
+                if (trimmed.Length == 1)
+                {
+                    chars.Add(trimmed[0]);
+                }
+            }
+
+            if (chars.Count == 0)
+            {
+                return null;
+            }
+
+            return "[" + Regex.Escape(new string([.. chars])) + "]";
         }
 
         /// <summary>

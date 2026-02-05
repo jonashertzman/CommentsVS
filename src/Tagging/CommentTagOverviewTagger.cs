@@ -52,7 +52,7 @@ namespace CommentsVS.Tagging
             _buffer.Changed += OnBufferChanged;
 
             // Get file path and cache anchor tags/regex for this file (from .editorconfig or Options)
-            string filePath = buffer.GetFileName();
+            var filePath = buffer.GetFileName();
             _anchorTags = EditorConfigSettings.GetAllAnchorTags(filePath);
             _customTags = EditorConfigSettings.GetCustomAnchorTags(filePath);
             _anchorRegex = EditorConfigSettings.GetAnchorClassificationRegex(filePath);
@@ -139,7 +139,11 @@ namespace CommentsVS.Tagging
                         continue;
                     }
 
-                    var tagSpan = new SnapshotSpan(snapshot, lineStart + tagGroup.Index, tagGroup.Length);
+                    // Extend span to include the optional tag prefix (e.g., @ in @TODO)
+                    Group pfxGroup = match.Groups["tagprefix"];
+                    var spanStart = pfxGroup.Success ? pfxGroup.Index : tagGroup.Index;
+                    var spanLength = (tagGroup.Index + tagGroup.Length) - spanStart;
+                    var tagSpan = new SnapshotSpan(snapshot, lineStart + spanStart, spanLength);
 
                     yield return new TagSpan<OverviewMarkTag>(tagSpan, new OverviewMarkTag(formatName));
                 }
